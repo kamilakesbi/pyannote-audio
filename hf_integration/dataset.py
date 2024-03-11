@@ -1,6 +1,5 @@
-import IPython.display as ipd
 import numpy as np
-from datasets import load_dataset
+from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
 
 
 def concatenate(files, chunk_duration=50):
@@ -42,7 +41,6 @@ def concatenate(files, chunk_duration=50):
         timestamp_end = element["end_time"]
 
         samples_start = int(timestamp_start * sr)
-        # samples_end = int(timestamp_end * sr)
 
         audio_segment = element["audio"]["array"]
         audio_length = len(audio_segment)
@@ -74,18 +72,59 @@ def concatenate(files, chunk_duration=50):
     return new_batch
 
 
-if __name__ == "__main__":
+def create_speaker_diarization_dataset(ds, nb_samples_per_meeting=10, batch_size=32):
 
-    ds = load_dataset("edinburghcstr/ami", "ihm", split="train")
+    subsets = ["train", "validation", "test"]
 
-    dataset = ds.filter(lambda x: x["meeting_id"] == "EN2001a")
-    dataset = dataset.sort("begin_time")
-    dataset = dataset.select(range(320))
-    result = dataset.map(
-        concatenate, batched=True, batch_size=32, remove_columns=dataset.column_names
+    speaker_diarization_dataset = DatasetDict(
+        {
+            "train": Dataset.from_dict({}),
+            "validation": Dataset.from_dict({}),
+            "test": Dataset.from_dict({}),
+        }
     )
 
-    for i, file in enumerate(result):
-        audio = ipd.Audio(file["audio"], rate=16000)
-        with open("examples/test_file{}.wav".format(i), "wb") as f:
-            f.write(audio.data)
+    for subset in subsets:
+
+        meetings = ds[str(subset)].to_pandas()["meeting_id"].unique()[:3]
+
+        concatenate_dataset = Dataset.from_dict(
+            {"audio": [], "speakers": [], "timestamps_start": [], "timestamps_end": []}
+        )
+
+        for meeting in meetings:
+
+            dataset = ds[str(subset)].filter(lambda x: x["meeting_id"] == str(meeting))
+
+            dataset = dataset.sort("begin_time")
+
+            dataset = dataset.select(range(nb_samples_per_meeting * batch_size))
+
+            result = dataset.map(
+                concatenate,
+                batched=True,
+                batch_size=batch_size,
+                remove_columns=dataset.column_names,
+            )
+
+            concatenate_dataset = concatenate_datasets([concatenate_dataset, result])
+
+        speaker_diarization_dataset[str(subset)] = concatenate_dataset
+
+    return speaker_diarization_dataset
+
+
+if __name__ == "__main__":
+
+    ds = load_dataset("edinburghcstr/ami", "ihm")
+
+    spk_dataset = create_speaker_diarization_dataset(ds, 10, 32)
+    print(spk_dataset)
+
+    spk_dataset.push_to_hub("kamilakesbi/ami_spd_small_test")
+
+    # get meeting ids:
+    # for i, file in enumerate(result):
+    # audio = ipd.Audio(file["audio"], rate=16000)
+    # with open("examples/test_file{}.wav".format(i), "wb") as f:
+    #     f.write(audio.data)
