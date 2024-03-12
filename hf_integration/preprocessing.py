@@ -8,6 +8,13 @@ from pyannote.audio.models.segmentation import PyanNet
 
 
 def get_labels_in_file(file):
+    """Get speakers
+    Args:
+        file (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
 
     file_labels = []
     for i in range(len(file["speakers"][0])):
@@ -34,6 +41,14 @@ def get_segments_in_file(file, labels):
     annotations = np.array(file_annotations, dtype)
 
     return annotations
+
+
+def get_start_positions(file, duration, overlap, sample_rate=16000):
+
+    file_duration = len(file["audio"][0]) / sample_rate
+    start_positions = np.arange(0, file_duration, duration * (1 - overlap))
+
+    return start_positions
 
 
 def get_chunk(file, start_time, duration, max_speakers_per_chunk=3, sample_rate=16000):
@@ -82,18 +97,31 @@ def get_chunk(file, start_time, duration, max_speakers_per_chunk=3, sample_rate=
     return waveform, y, labels
 
 
-def get_start_positions(file, duration, overlap, sample_rate=16000):
+def pad_target(y, label, max_speakers_per_chunk=3):
 
-    file_duration = len(file["audio"][0]) / sample_rate
-    start_positions = np.arange(0, file_duration, duration * (1 - overlap))
+    num_speakers = len(label)
 
-    return start_positions
+    if num_speakers > max_speakers_per_chunk:
+        # sort speakers in descending talkativeness order
+        indices = np.argsort(-np.sum(y, axis=0), axis=0)
+        # keep only the most talkative speakers
+        y = y[:, indices[:max_speakers_per_chunk]]
+
+    elif num_speakers < max_speakers_per_chunk:
+        # create inactive speakers by zero padding
+        y = np.pad(
+            y,
+            ((0, 0), (0, max_speakers_per_chunk - num_speakers)),
+            mode="constant",
+        )
+
+    return y
 
 
-def chunk_file(file, duration=2, overlap=0.5):
+def chunk_file(file, duration=2, overlap=0.25):
 
     new_batch = {
-        "input": [],
+        "waveform": [],
         "target": [],
         "label": [],
     }
@@ -105,6 +133,9 @@ def chunk_file(file, duration=2, overlap=0.5):
         X, y, label = get_chunk(file, start_time, duration)
 
         new_batch["input"].append(X)
+
+        y = pad_target(y, label)
+
         new_batch["target"].append(y)
         new_batch["label"].append(label)
 
@@ -117,7 +148,7 @@ if __name__ == "__main__":
 
     dataset = ds.filter(lambda x: x["meeting_id"] == "EN2001a")
     dataset = dataset.sort("begin_time")
-    dataset = dataset.select(range(32))
+    dataset = dataset.select(range(320))
     dataset = dataset.map(
         concatenate, batched=True, batch_size=32, remove_columns=dataset.column_names
     )
@@ -125,3 +156,5 @@ if __name__ == "__main__":
     processed_dataset = dataset.map(
         chunk_file, batched=True, batch_size=1, remove_columns=dataset.column_names
     )
+
+    processed_dataset.push_to_hub("kamilakesbi/ami_spd_small_processed")
