@@ -2,7 +2,7 @@ import numpy as np
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
 
 
-def concatenate(files, chunk_duration=50):
+def concatenate(files, audio_duration=50):
 
     """_summary_
 
@@ -19,7 +19,7 @@ def concatenate(files, chunk_duration=50):
 
     sr = files["audio"][0]["sampling_rate"]
 
-    audio_chunk = np.zeros(chunk_duration * sr)
+    audio_chunk = np.zeros(audio_duration * sr)
 
     files = [
         {key: values[i] for key, values in files.items()}
@@ -28,7 +28,7 @@ def concatenate(files, chunk_duration=50):
 
     chunk_start_timestamp = files[0]["begin_time"]
     chunk_start = int(chunk_start_timestamp * sr)
-    chunk_end = int(chunk_start + chunk_duration * sr)
+    chunk_end = int(chunk_start + audio_duration * sr)
 
     speakers = []
 
@@ -61,10 +61,16 @@ def concatenate(files, chunk_duration=50):
 
         chunk_timestamps_start.append(timestamp_start - chunk_start_timestamp)
         chunks_timestamps_end.append(
-            min(timestamp_end - chunk_start_timestamp, chunk_duration)
+            min(timestamp_end - chunk_start_timestamp, audio_duration)
         )
 
     new_batch["speakers"].append(speakers)
+
+    audio_chunk = {
+        "array": audio_chunk,
+        "sampling_rate": sr,
+    }
+
     new_batch["audio"].append(audio_chunk)
     new_batch["timestamps_start"].append(chunk_timestamps_start)
     new_batch["timestamps_end"].append(chunks_timestamps_end)
@@ -72,7 +78,7 @@ def concatenate(files, chunk_duration=50):
     return new_batch
 
 
-def create_speaker_diarization_dataset(ds, nb_samples_per_meeting=10, batch_size=32):
+def create_speaker_diarization_dataset(ds, nb_samples_per_meeting=10, batch_size=256):
 
     subsets = ["train", "validation", "test"]
 
@@ -119,7 +125,6 @@ if __name__ == "__main__":
     ds = load_dataset("edinburghcstr/ami", "ihm")
 
     spk_dataset = create_speaker_diarization_dataset(ds, 10, 32)
-    print(spk_dataset)
 
     spk_dataset.push_to_hub("kamilakesbi/ami_spd_small_test")
 
