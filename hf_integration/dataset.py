@@ -100,7 +100,9 @@ def create_speaker_diarization_dataset(ds, nb_samples_per_meeting=10, batch_size
 
         for meeting in meetings:
 
-            dataset = ds[str(subset)].filter(lambda x: x["meeting_id"] == str(meeting))
+            dataset = ds[str(subset)].filter(
+                lambda x: x["meeting_id"] == str(meeting), num_proc=8
+            )
 
             dataset = dataset.sort("begin_time")
 
@@ -124,7 +126,9 @@ if __name__ == "__main__":
 
     ds = load_dataset("edinburghcstr/ami", "ihm")
 
-    spk_dataset = create_speaker_diarization_dataset(ds, 10, 32)
+    spk_dataset = create_speaker_diarization_dataset(
+        ds, nb_samples_per_meeting=10, batch_size=32
+    )
 
     spk_dataset.push_to_hub("kamilakesbi/ami_spd_small_test")
 
