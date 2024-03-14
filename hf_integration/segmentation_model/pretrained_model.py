@@ -62,20 +62,6 @@ class SegmentationModel(PreTrainedModel):
             Permutation-invariant segmentation loss
         """
 
-        # if self.specifications.powerset:
-        #     # `clamp_min` is needed to set non-speech weight to 1.
-        #     class_weight = (
-        #         torch.clamp_min(self.model.powerset.cardinality, 1.0)
-        #         if self.weigh_by_cardinality
-        #         else None
-        #     )
-        #     seg_loss = nll_loss(
-        #         permutated_prediction,
-        #         torch.argmax(target, dim=-1),
-        #         class_weight=class_weight,
-        #         weight=weight,
-        #     )
-        # else:
         seg_loss = binary_cross_entropy(
             permutated_prediction, target.float(), weight=weight
         )

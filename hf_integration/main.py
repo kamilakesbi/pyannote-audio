@@ -1,4 +1,5 @@
 from datasets import load_dataset
+from metrics import der_metric
 from segmentation_model.pretrained_model import PyanNetConfig, SegmentationModel
 from train import DataCollator
 from transformers import Trainer, TrainingArguments
@@ -8,6 +9,7 @@ if __name__ == "__main__":
     dataset = load_dataset("kamilakesbi/ami_spd_small_processed")
 
     train_dataset = dataset["train"].with_format("torch")
+    eval_dataset = dataset["validation"].with_format("torch")
 
     training_args = TrainingArguments(
         output_dir="hf_integration/output/",
@@ -23,5 +25,7 @@ if __name__ == "__main__":
         args=training_args,
         train_dataset=train_dataset,
         data_collator=DataCollator(),
+        eval_dataset=eval_dataset,
+        compute_metrics=der_metric,
     )
-    trainer.train()
+    trainer.evaluate()
