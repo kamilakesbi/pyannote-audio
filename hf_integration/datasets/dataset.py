@@ -131,9 +131,3 @@ if __name__ == "__main__":
     )
 
     spk_dataset.push_to_hub("kamilakesbi/ami_spd_small_test")
-
-    # get meeting ids:
-    # for i, file in enumerate(result):
-    # audio = ipd.Audio(file["audio"], rate=16000)
-    # with open("examples/test_file{}.wav".format(i), "wb") as f:
-    #     f.write(audio.data)

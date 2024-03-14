@@ -23,27 +23,14 @@ class SegmentationModel(PreTrainedModel):
         super().__init__(config)
         self.model = PyanNet(sincnet={"stride": 10})
 
-    def forward(self, input_features, labels=None):
+    def forward(self, waveforms, labels=None):
 
-        prediction = self.model(input_features.unsqueeze(1))
+        prediction = self.model(waveforms.unsqueeze(1))
         batch_size, num_frames, _ = prediction.shape
 
         if labels is not None:
 
-            # weight_key = getattr(self, "weight", None)
-            # weight = batch.get(
-            #     weight_key,
-            #     torch.ones(batch_size, num_frames, 1, device=self.model.device),
-            # )
-            # (batch_size, num_frames, 1)
-
-            # # warm-up
-            # warm_up_left = round(self.warm_up[0] / self.duration * num_frames)
-            # weight[:, :warm_up_left] = 0.0
-            # warm_up_right = round(self.warm_up[1] / self.duration * num_frames)
-            # weight[:, num_frames - warm_up_right :] = 0.0
-
-            weight = torch.ones(batch_size, num_frames, 1, device=input_features.device)
+            weight = torch.ones(batch_size, num_frames, 1, device=waveforms.device)
             permutated_prediction, _ = permutate(labels, prediction)
 
             loss = self.segmentation_loss(permutated_prediction, labels, weight=weight)

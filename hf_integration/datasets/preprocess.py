@@ -117,9 +117,8 @@ def pad_target(y, label, max_speakers_per_chunk=3):
 def chunk_file(file, duration=2, overlap=0.25):
 
     new_batch = {
-        "waveform": [],
-        "target": [],
-        "label": [],
+        "waveforms": [],
+        "labels": [],
     }
 
     # TODO: randomize chunk selection
@@ -130,12 +129,11 @@ def chunk_file(file, duration=2, overlap=0.25):
 
         X, y, label = get_chunk(file, start_time, duration)
 
-        new_batch["waveform"].append(X)
+        new_batch["waveforms"].append(X)
 
         y = pad_target(y, label)
 
-        new_batch["target"].append(y)
-        new_batch["label"].append(label)
+        new_batch["labels"].append(y)
 
     return new_batch
 
