@@ -12,9 +12,7 @@ pretrained = Model.from_pretrained("pyannote/segmentation-3.0", use_auth_token=T
 
 test_file = next(ami.train())
 
-
 spk_probability = Inference(pretrained, step=2.5)(test_file)
-
 
 seg_task = SpeakerDiarization(
     ami, duration=10.0, max_speakers_per_chunk=3, max_speakers_per_frame=2

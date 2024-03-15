@@ -11,5 +11,4 @@ class DataCollator:
         batch["waveforms"] = pad_sequence(
             [f["waveforms"] for f in features], batch_first=True, padding_value=0
         )
-
         return batch

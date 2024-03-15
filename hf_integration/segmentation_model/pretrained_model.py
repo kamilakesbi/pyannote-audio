@@ -1,3 +1,4 @@
+import copy
 from typing import Optional
 
 import torch
@@ -8,7 +9,7 @@ from pyannote.audio.utils.loss import binary_cross_entropy
 from pyannote.audio.utils.permutation import permutate
 
 
-class PyanNetConfig(PretrainedConfig):
+class SegmentationModelConfig(PretrainedConfig):
     model_type = "pyannet"
 
     def __init__(
@@ -31,8 +32,8 @@ class SegmentationModel(PreTrainedModel):
         if labels is not None:
 
             weight = torch.ones(batch_size, num_frames, 1, device=waveforms.device)
-            permutated_prediction, _ = permutate(labels, prediction)
 
+            permutated_prediction, _ = permutate(labels, prediction)
             loss = self.segmentation_loss(permutated_prediction, labels, weight=weight)
 
             return {"loss": loss, "logits": prediction}
@@ -67,3 +68,24 @@ class SegmentationModel(PreTrainedModel):
         )
 
         return seg_loss
+
+    def copy_weights(self, pretrained):
+
+        self.model.hparams = copy.deepcopy(pretrained.hparams)
+
+        self.model.sincnet = copy.deepcopy(pretrained.sincnet)
+        self.model.sincnet.load_state_dict(pretrained.sincnet.state_dict())
+
+        self.model.lstm = copy.deepcopy(pretrained.lstm)
+        self.model.lstm.load_state_dict(pretrained.lstm.state_dict())
+
+        self.model.linear = copy.deepcopy(pretrained.linear)
+        self.model.linear.load_state_dict(pretrained.linear.state_dict())
+
+        self.model.specifications = copy.deepcopy(pretrained.specifications)
+
+        self.model.classifier = copy.deepcopy(pretrained.classifier)
+        self.model.classifier.load_state_dict(pretrained.classifier.state_dict())
+
+        self.model.activation = copy.deepcopy(pretrained.activation)
+        self.model.activation.load_state_dict(pretrained.activation.state_dict())
