@@ -1,6 +1,8 @@
 import numpy as np
+import torch
 
 from pyannote.audio.utils.permutation import permutate
+from pyannote.audio.utils.powerset import Powerset
 
 
 def discrete_diarization_error_rate(reference: np.ndarray, hypothesis: np.ndarray):
@@ -54,6 +56,10 @@ def discrete_diarization_error_rate(reference: np.ndarray, hypothesis: np.ndarra
 def der_metric(eval_pred):
 
     logits, labels = eval_pred
+
+    conversion = Powerset(3, 2)
+    logits = conversion(torch.tensor(logits)).cpu().numpy()
+
     predictions = (logits >= 0.5).astype(np.float32)
 
     metric = 0
