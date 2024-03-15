@@ -1,3 +1,4 @@
+import torch
 from segmentation_model.pretrained_model import (
     SegmentationModel,
     SegmentationModelConfig,
@@ -10,3 +11,5 @@ pretrained = Model.from_pretrained("pyannote/segmentation-3.0", use_auth_token=T
 config = SegmentationModelConfig()
 model = SegmentationModel(config)
 model.copy_weights(pretrained)
+
+waveform = torch.rand((1, 32000))

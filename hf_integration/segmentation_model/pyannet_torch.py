@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from einops import rearrange
 from pyannote.core.utils.generators import pairwise
 
-from pyannote.audio.core.task import Problem, Resolution, Specifications
+from pyannote.audio.core.task import Problem
 
 # from pyannote.audio.core.model import Model
 # from pyannote.audio.core.task import Task
@@ -140,27 +140,6 @@ class PyanNet(torch.nn.Module):
                 )
             ]
         )
-
-        self.duration = 2
-        self.max_speakers_per_frame = None
-        self.max_speakers_per_chunk = 3
-        self.min_duration = 2
-        self.warm_up = (0.0, 0.0)
-
-        self.specifications = Specifications(
-            problem=Problem.MULTI_LABEL_CLASSIFICATION
-            if self.max_speakers_per_frame is None
-            else Problem.MONO_LABEL_CLASSIFICATION,
-            resolution=Resolution.FRAME,
-            duration=self.duration,
-            min_duration=self.min_duration,
-            warm_up=self.warm_up,
-            classes=[f"speaker#{i+1}" for i in range(self.max_speakers_per_chunk)],
-            powerset_max_classes=self.max_speakers_per_frame,
-            permutation_invariant=True,
-        )
-
-        self.build()
 
     @property
     def dimension(self) -> int:
