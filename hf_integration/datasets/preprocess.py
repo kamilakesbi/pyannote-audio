@@ -121,8 +121,6 @@ def chunk_file(file, duration=2, overlap=0.25):
         "labels": [],
     }
 
-    # TODO: randomize chunk selection
-
     start_positions = get_start_positions(file, duration, overlap)
 
     for start_time in start_positions:

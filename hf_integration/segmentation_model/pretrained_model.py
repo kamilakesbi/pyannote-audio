@@ -57,8 +57,9 @@ class SegmentationModel(PreTrainedModel):
 
         if labels is not None:
 
+            weight = torch.ones(batch_size, num_frames, 1, device=waveforms.device)
+
             if self.specifications.powerset:
-                weight = torch.ones(batch_size, num_frames, 1, device=waveforms.device)
 
                 multilabel = self.model.powerset.to_multilabel(prediction)
                 permutated_target, _ = permutate(multilabel, labels)

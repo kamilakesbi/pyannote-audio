@@ -53,22 +53,30 @@ def discrete_diarization_error_rate(reference: np.ndarray, hypothesis: np.ndarra
         return 0
 
 
-def der_metric(eval_pred):
+class Metrics:
+    def __init__(self, specifications) -> None:
 
-    logits, labels = eval_pred
+        self.powerset = specifications.powerset
+        self.classes = specifications.classes
+        self.powerset_max_classes = specifications.powerset_max_classes
 
-    conversion = Powerset(3, 2)
-    logits = conversion(torch.tensor(logits)).cpu().numpy()
+    def der_metric(self, eval_pred):
 
-    predictions = (logits >= 0.5).astype(np.float32)
+        logits, labels = eval_pred
 
-    metric = 0
-    for i in range(len(predictions)):
-        prediction = predictions[i]
-        label = labels[i]
+        if self.powerset:
+            conversion = Powerset(len(self.classes), self.powerset_max_classes)
+            logits = conversion(torch.tensor(logits)).cpu().numpy()
 
-        metric += discrete_diarization_error_rate(label, prediction)
+        predictions = (logits >= 0.5).astype(np.float32)
 
-    metric /= len(predictions)
+        metric = 0
+        for i in range(len(predictions)):
+            prediction = predictions[i]
+            label = labels[i]
 
-    return {"der": metric}
+            metric += discrete_diarization_error_rate(label, prediction)
+
+        metric /= len(predictions)
+
+        return {"der": metric}

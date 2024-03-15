@@ -1,5 +1,7 @@
+import os
+
 from datasets import load_dataset
-from metrics import der_metric
+from metrics import Metrics
 from segmentation_model.pretrained_model import (
     SegmentationModel,
     SegmentationModelConfig,
@@ -10,8 +12,6 @@ from transformers import Trainer, TrainingArguments
 from pyannote.audio import Model
 
 if __name__ == "__main__":
-
-    import os
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
@@ -41,12 +41,14 @@ if __name__ == "__main__":
     model = SegmentationModel(config)
     model.copy_weights(pretrained)
 
+    metric = Metrics(model.specifications)
+
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         data_collator=DataCollator(),
         eval_dataset=eval_dataset,
-        compute_metrics=der_metric,
+        compute_metrics=metric.der_metric,
     )
     trainer.train()
