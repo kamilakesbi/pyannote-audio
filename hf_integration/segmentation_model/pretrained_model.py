@@ -2,10 +2,11 @@ import copy
 from typing import Optional
 
 import torch
-from segmentation_model.pyannet_torch import PyanNet
+from segmentation_model.pyannet_torch import PyanNet_nn
 from transformers import PretrainedConfig, PreTrainedModel
 
 from pyannote.audio.core.task import Problem, Resolution, Specifications
+from pyannote.audio.models.segmentation import PyanNet
 from pyannote.audio.utils.loss import binary_cross_entropy, nll_loss
 from pyannote.audio.utils.permutation import permutate
 from pyannote.audio.utils.powerset import Powerset
@@ -33,7 +34,7 @@ class SegmentationModel(PreTrainedModel):
         weigh_by_cardinality=False,
     ):
         super().__init__(config)
-        self.model = PyanNet(sincnet={"stride": 10})
+        self.model = PyanNet_nn(sincnet={"stride": 10})
 
         self.weigh_by_cardinality = weigh_by_cardinality
 
@@ -170,3 +171,27 @@ class SegmentationModel(PreTrainedModel):
         self.specifications = self.model.specifications
         self.model.build()
         self.setup_loss_func()
+
+    def to_pyannote_model(self):
+
+        seg_model = PyanNet(sincnet={"stride": 10})
+        seg_model.hparams.update(self.model.hparams)
+
+        seg_model.sincnet = copy.deepcopy(self.model.sincnet)
+        seg_model.sincnet.load_state_dict(self.model.sincnet.state_dict())
+
+        seg_model.lstm = copy.deepcopy(self.model.lstm)
+        seg_model.lstm.load_state_dict(self.model.lstm.state_dict())
+
+        seg_model.linear = copy.deepcopy(self.model.linear)
+        seg_model.linear.load_state_dict(self.model.linear.state_dict())
+
+        seg_model.classifier = copy.deepcopy(self.model.classifier)
+        seg_model.classifier.load_state_dict(self.model.classifier.state_dict())
+
+        seg_model.activation = copy.deepcopy(self.model.activation)
+        seg_model.activation.load_state_dict(self.model.activation.state_dict())
+
+        seg_model.specifications = self.specifications
+
+        return seg_model

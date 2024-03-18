@@ -21,7 +21,7 @@ class Dict(dict):
         self.__dict__ = self
 
 
-class PyanNet(torch.nn.Module):
+class PyanNet_nn(torch.nn.Module):
     """PyanNet segmentation model
 
     SincNet > LSTM > Feed forward > Classifier
@@ -66,7 +66,7 @@ class PyanNet(torch.nn.Module):
         num_channels: int = 1,
     ):
 
-        super(PyanNet, self).__init__()
+        super(PyanNet_nn, self).__init__()
 
         sincnet = merge_dict(self.SINCNET_DEFAULTS, sincnet)
         sincnet["sample_rate"] = sample_rate
