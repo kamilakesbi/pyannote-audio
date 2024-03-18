@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
 
@@ -78,7 +80,9 @@ def concatenate(files, audio_duration=50):
     return new_batch
 
 
-def create_speaker_diarization_dataset(ds, nb_samples_per_meeting=10, batch_size=256):
+def create_speaker_diarization_dataset(
+    ds, nb_samples_per_meeting=10, batch_size=256, audio_duration=60
+):
 
     subsets = ["train", "validation", "test"]
 
@@ -92,7 +96,7 @@ def create_speaker_diarization_dataset(ds, nb_samples_per_meeting=10, batch_size
 
     for subset in subsets:
 
-        meetings = ds[str(subset)].to_pandas()["meeting_id"].unique()[:3]
+        meetings = ds[str(subset)].to_pandas()["meeting_id"].unique()
 
         concatenate_dataset = Dataset.from_dict(
             {"audio": [], "speakers": [], "timestamps_start": [], "timestamps_end": []}
@@ -109,7 +113,7 @@ def create_speaker_diarization_dataset(ds, nb_samples_per_meeting=10, batch_size
             dataset = dataset.select(range(nb_samples_per_meeting * batch_size))
 
             result = dataset.map(
-                concatenate,
+                lambda example: concatenate(example, audio_duration),
                 batched=True,
                 batch_size=batch_size,
                 remove_columns=dataset.column_names,
@@ -124,10 +128,20 @@ def create_speaker_diarization_dataset(ds, nb_samples_per_meeting=10, batch_size
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bs", help="", default="32")
+    parser.add_argument("--samples_per_meeting", help="", default="10")
+    parser.add_argument("--audio_duration", help="", default="60")
+
+    args = parser.parse_args()
+
     ds = load_dataset("edinburghcstr/ami", "ihm")
 
     spk_dataset = create_speaker_diarization_dataset(
-        ds, nb_samples_per_meeting=10, batch_size=32
+        ds,
+        nb_samples_per_meeting=args.samples_per_meeting,
+        batch_size=args.bs,
+        audio_duration=args.audio_duration,
     )
 
-    spk_dataset.push_to_hub("kamilakesbi/ami_spd_small_test")
+    spk_dataset.push_to_hub("kamilakesbi/ami_spd_medium_test")
