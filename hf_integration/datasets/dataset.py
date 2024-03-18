@@ -80,7 +80,7 @@ def concatenate(files, audio_duration=50):
     return new_batch
 
 
-def create_speaker_diarization_dataset(
+def create_spd_dataset(
     ds,
     nb_samples_per_meeting,
     batch_size,
@@ -170,7 +170,7 @@ if __name__ == "__main__":
         "test": int(args.nb_meetings_test),
     }
 
-    spk_dataset = create_speaker_diarization_dataset(
+    spk_dataset = create_spd_dataset(
         ds,
         nb_samples_per_meeting=int(args.samples_per_meeting),
         batch_size=int(args.bs),

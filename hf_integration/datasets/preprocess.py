@@ -87,8 +87,9 @@ def get_chunk(file, start_time, duration):
     return waveform, y, labels
 
 
-def get_start_positions(file, duration, overlap, sample_rate=16000):
+def get_start_positions(file, duration, overlap):
 
+    sample_rate = file["audio"][0]["sampling_rate"]
     file_duration = len(file["audio"][0]["array"]) / sample_rate
     start_positions = np.arange(0, file_duration, duration * (1 - overlap))
 
@@ -116,7 +117,7 @@ def chunk_file(file, duration=2, select_random=False, overlap=0.0):
     return new_batch
 
 
-def processed_spd_dataset(ds, duration):
+def preprocess_spd_dataset(ds, chunk_duration):
 
     processed_spd_dataset = DatasetDict(
         {
@@ -128,7 +129,7 @@ def processed_spd_dataset(ds, duration):
 
     processed_spd_dataset["train"] = ds["train"].map(
         lambda file: chunk_file(
-            file, duration=duration, select_random=True, overlap=0.0
+            file, duration=chunk_duration, select_random=True, overlap=0.0
         ),
         batched=True,
         batch_size=1,
@@ -137,7 +138,7 @@ def processed_spd_dataset(ds, duration):
 
     processed_spd_dataset["validation"] = ds["validation"].map(
         lambda file: chunk_file(
-            file, duration=duration, select_random=False, overlap=0.0
+            file, duration=chunk_duration, select_random=False, overlap=0.0
         ),
         batched=True,
         batch_size=1,
@@ -146,7 +147,7 @@ def processed_spd_dataset(ds, duration):
 
     processed_spd_dataset["test"] = ds["test"].map(
         lambda file: chunk_file(
-            file, duration=duration, select_random=False, overlap=0.0
+            file, duration=chunk_duration, select_random=False, overlap=0.0
         ),
         batched=True,
         batch_size=1,
@@ -159,13 +160,12 @@ def processed_spd_dataset(ds, duration):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--duration", help="", default="2")
-    parser.add_argument("--max_speakers_per_chunk", help="", default="3")
+    parser.add_argument("--chunk_duration", help="", default="2")
 
     args = parser.parse_args()
 
     ds = load_dataset("kamilakesbi/ami_spd_medium_test")
 
-    processed_dataset = processed_spd_dataset(ds, duration=2)
+    processed_dataset = preprocess_spd_dataset(ds, chunk_duration=args.chunk_duration)
 
     processed_dataset.push_to_hub("kamilakesbi/ami_spd_medium_processed")

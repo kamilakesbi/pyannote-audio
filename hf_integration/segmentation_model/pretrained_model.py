@@ -61,6 +61,18 @@ class SegmentationModel(PreTrainedModel):
         if labels is not None:
 
             weight = torch.ones(batch_size, num_frames, 1, device=waveforms.device)
+            warm_up_left = round(
+                self.specifications.warm_up[0]
+                / self.specifications.duration
+                * num_frames
+            )
+            weight[:, :warm_up_left] = 0.0
+            warm_up_right = round(
+                self.specifications.warm_up[1]
+                / self.specifications.duration
+                * num_frames
+            )
+            weight[:, num_frames - warm_up_right :] = 0.0
 
             if self.specifications.powerset:
 
