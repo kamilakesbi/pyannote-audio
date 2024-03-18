@@ -81,8 +81,23 @@ def concatenate(files, audio_duration=50):
 
 
 def create_speaker_diarization_dataset(
-    ds, nb_samples_per_meeting=10, batch_size=256, audio_duration=60
+    ds,
+    nb_samples_per_meeting,
+    batch_size,
+    audio_dur_mean,
+    audio_dur_std,
+    nb_meetings,
 ):
+
+    """Function to create a speaker Diarization dataset
+    from the ami for ASR.
+
+    Returns:
+        ds: _description_
+        nb_samples_per_meeting:
+        batch_size:
+        audio_duration:
+    """
 
     subsets = ["train", "validation", "test"]
 
@@ -96,24 +111,32 @@ def create_speaker_diarization_dataset(
 
     for subset in subsets:
 
-        meetings = ds[str(subset)].to_pandas()["meeting_id"].unique()
+        meetings = (
+            ds[str(subset)]
+            .to_pandas()["meeting_id"]
+            .unique()[: nb_meetings[str(subset)]]
+        )
 
         concatenate_dataset = Dataset.from_dict(
             {"audio": [], "speakers": [], "timestamps_start": [], "timestamps_end": []}
         )
 
+        print(subset)
         for meeting in meetings:
-
+            print(meeting)
             dataset = ds[str(subset)].filter(
                 lambda x: x["meeting_id"] == str(meeting), num_proc=8
             )
 
             dataset = dataset.sort("begin_time")
+            dataset = dataset.select(
+                range(min(nb_samples_per_meeting * batch_size, dataset.num_rows))
+            )
 
-            dataset = dataset.select(range(nb_samples_per_meeting * batch_size))
+            audio_dur = np.random.normal(audio_dur_mean, audio_dur_std)
 
             result = dataset.map(
-                lambda example: concatenate(example, audio_duration),
+                lambda example: concatenate(example, int(audio_dur)),
                 batched=True,
                 batch_size=batch_size,
                 remove_columns=dataset.column_names,
@@ -131,17 +154,29 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--bs", help="", default="32")
     parser.add_argument("--samples_per_meeting", help="", default="10")
-    parser.add_argument("--audio_duration", help="", default="60")
+    parser.add_argument("--audio_dur_mean", help="", default="60")
+    parser.add_argument("--audio_dur_std", help="", default="10")
+    parser.add_argument("--nb_meetings_train", help="", default="15")
+    parser.add_argument("--nb_meetings_val", help="", default="5")
+    parser.add_argument("--nb_meetings_test", help="", default="5")
 
     args = parser.parse_args()
 
     ds = load_dataset("edinburghcstr/ami", "ihm")
 
+    nb_meetings = {
+        "train": int(args.nb_meetings_train),
+        "validation": int(args.nb_meetings_val),
+        "test": int(args.nb_meetings_test),
+    }
+
     spk_dataset = create_speaker_diarization_dataset(
         ds,
-        nb_samples_per_meeting=args.samples_per_meeting,
-        batch_size=args.bs,
-        audio_duration=args.audio_duration,
+        nb_samples_per_meeting=int(args.samples_per_meeting),
+        batch_size=int(args.bs),
+        audio_dur_mean=int(args.audio_dur_mean),
+        audio_dur_std=int(args.audio_dur_std),
+        nb_meetings=nb_meetings,
     )
 
     spk_dataset.push_to_hub("kamilakesbi/ami_spd_medium_test")
