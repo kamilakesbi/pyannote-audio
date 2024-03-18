@@ -1,3 +1,4 @@
+import argparse
 import math
 
 import numpy as np
@@ -42,16 +43,9 @@ def get_segments_in_file(file, labels):
     return annotations
 
 
-def get_start_positions(file, duration, overlap, sample_rate=16000):
+def get_chunk(file, start_time, duration):
 
-    file_duration = len(file["audio"][0]["array"]) / sample_rate
-    start_positions = np.arange(0, file_duration, duration * (1 - overlap))
-
-    return start_positions
-
-
-def get_chunk(file, start_time, duration, max_speakers_per_chunk=3, sample_rate=16000):
-
+    sample_rate = file["audio"][0]["sampling_rate"]
     end_time = start_time + duration
     start_frame = math.floor(start_time * sample_rate)
     num_frames = math.floor(duration * sample_rate)
@@ -80,9 +74,6 @@ def get_chunk(file, start_time, duration, max_speakers_per_chunk=3, sample_rate=
     labels = list(np.unique(chunk_segments["labels"]))
     num_labels = len(labels)
 
-    if num_labels > max_speakers_per_chunk:
-        pass
-
     num_frames = model.num_frames(round(duration * model.hparams.sample_rate))
     y = np.zeros((num_frames, num_labels), dtype=np.uint8)
 
@@ -96,49 +87,36 @@ def get_chunk(file, start_time, duration, max_speakers_per_chunk=3, sample_rate=
     return waveform, y, labels
 
 
-def pad_target(y, label, max_speakers_per_chunk=3):
+def get_start_positions(file, duration, overlap, sample_rate=16000):
 
-    num_speakers = len(label)
+    file_duration = len(file["audio"][0]["array"]) / sample_rate
+    start_positions = np.arange(0, file_duration, duration * (1 - overlap))
 
-    if num_speakers > max_speakers_per_chunk:
-        indices = np.argsort(-np.sum(y, axis=0), axis=0)
-        y = y[:, indices[:max_speakers_per_chunk]]
-
-    elif num_speakers < max_speakers_per_chunk:
-        y = np.pad(
-            y,
-            ((0, 0), (0, max_speakers_per_chunk - num_speakers)),
-            mode="constant",
-        )
-
-    return y
+    return start_positions
 
 
-def chunk_file(file, duration=2, overlap=0.25):
+def chunk_file(file, duration=2, select_random=False, overlap=0.0):
 
-    new_batch = {
-        "waveforms": [],
-        "labels": [],
-    }
+    new_batch = {"waveforms": [], "labels": [], "nb_speakers": []}
 
-    start_positions = get_start_positions(file, duration, overlap)
+    # Add script to select randomly audio chunks
+    if select_random:
+        start_positions = get_start_positions(file, duration, overlap)
+    else:
+        start_positions = get_start_positions(file, duration, overlap)
 
     for start_time in start_positions:
 
-        X, y, label = get_chunk(file, start_time, duration)
+        waveform, target, label = get_chunk(file, start_time, duration)
 
-        new_batch["waveforms"].append(X)
-
-        y = pad_target(y, label)
-
-        new_batch["labels"].append(y)
+        new_batch["waveforms"].append(waveform)
+        new_batch["labels"].append(target)
+        new_batch["nb_speakers"].append(label)
 
     return new_batch
 
 
-def processed_spd_dataset(ds):
-
-    subsets = ["train", "validation", "test"]
+def processed_spd_dataset(ds, duration):
 
     processed_spd_dataset = DatasetDict(
         {
@@ -147,20 +125,47 @@ def processed_spd_dataset(ds):
             "test": Dataset.from_dict({}),
         }
     )
-    for subset in subsets:
-        processed_spd_dataset[str(subset)] = ds[str(subset)].map(
-            chunk_file,
-            batched=True,
-            batch_size=1,
-            remove_columns=ds[str(subset)].column_names,
-        )
+
+    processed_spd_dataset["train"] = ds["train"].map(
+        lambda file: chunk_file(
+            file, duration=duration, select_random=True, overlap=0.0
+        ),
+        batched=True,
+        batch_size=1,
+        remove_columns=ds["train"].column_names,
+    )
+
+    processed_spd_dataset["validation"] = ds["validation"].map(
+        lambda file: chunk_file(
+            file, duration=duration, select_random=False, overlap=0.0
+        ),
+        batched=True,
+        batch_size=1,
+        remove_columns=ds["validation"].column_names,
+    )
+
+    processed_spd_dataset["test"] = ds["test"].map(
+        lambda file: chunk_file(
+            file, duration=duration, select_random=False, overlap=0.0
+        ),
+        batched=True,
+        batch_size=1,
+        remove_columns=ds["test"].column_names,
+    )
 
     return processed_spd_dataset
 
 
 if __name__ == "__main__":
 
-    ds = load_dataset("kamilakesbi/ami_spd_small_test")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--duration", help="", default="2")
+    parser.add_argument("--max_speakers_per_chunk", help="", default="3")
 
-    processed_dataset = processed_spd_dataset(ds)
-    processed_dataset.push_to_hub("kamilakesbi/ami_spd_small_processed")
+    args = parser.parse_args()
+
+    ds = load_dataset("kamilakesbi/ami_spd_medium_test")
+
+    processed_dataset = processed_spd_dataset(ds, duration=2)
+
+    processed_dataset.push_to_hub("kamilakesbi/ami_spd_medium_processed")

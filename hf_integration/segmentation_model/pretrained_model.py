@@ -22,35 +22,38 @@ class SegmentationModelConfig(PretrainedConfig):
 
 
 class SegmentationModel(PreTrainedModel):
-    def __init__(self, config):
+    def __init__(
+        self,
+        config,
+        duration=2,
+        max_speakers_per_frame=None,
+        max_speakers_per_chunk=3,
+        min_duration=2,
+        warm_up=(0.0, 0.0),
+        weigh_by_cardinality=False,
+    ):
         super().__init__(config)
         self.model = PyanNet(sincnet={"stride": 10})
 
-        self.duration = 2
-        self.max_speakers_per_frame = None
-        self.max_speakers_per_chunk = 3
-        self.min_duration = 2
-        self.warm_up = (0.0, 0.0)
-
-        self.weigh_by_cardinality = False
+        self.weigh_by_cardinality = weigh_by_cardinality
 
         self.specifications = Specifications(
             problem=Problem.MULTI_LABEL_CLASSIFICATION
-            if self.max_speakers_per_frame is None
+            if max_speakers_per_frame is None
             else Problem.MONO_LABEL_CLASSIFICATION,
             resolution=Resolution.FRAME,
-            duration=self.duration,
-            min_duration=self.min_duration,
-            warm_up=self.warm_up,
-            classes=[f"speaker#{i+1}" for i in range(self.max_speakers_per_chunk)],
-            powerset_max_classes=self.max_speakers_per_frame,
+            duration=duration,
+            min_duration=min_duration,
+            warm_up=warm_up,
+            classes=[f"speaker#{i+1}" for i in range(max_speakers_per_chunk)],
+            powerset_max_classes=max_speakers_per_frame,
             permutation_invariant=True,
         )
         self.model.specifications = self.specifications
         self.model.build()
         self.setup_loss_func()
 
-    def forward(self, waveforms, labels=None):
+    def forward(self, waveforms, labels=None, nb_speakers=None):
 
         prediction = self.model(waveforms.unsqueeze(1))
         batch_size, num_frames, _ = prediction.shape
@@ -131,7 +134,7 @@ class SegmentationModel(PreTrainedModel):
 
         return seg_loss
 
-    def copy_weights(self, pretrained):
+    def from_pyannote_model(self, pretrained):
 
         self.model.hparams = copy.deepcopy(pretrained.hparams)
 

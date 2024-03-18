@@ -68,6 +68,7 @@ class Metrics:
             conversion = Powerset(len(self.classes), self.powerset_max_classes)
             logits = conversion(torch.tensor(logits)).cpu().numpy()
 
+        # Argmax ?
         predictions = (logits >= 0.5).astype(np.float32)
 
         metric = 0

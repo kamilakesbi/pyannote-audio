@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-    dataset = load_dataset("kamilakesbi/ami_spd_small_processed")
+    dataset = load_dataset("kamilakesbi/ami_spd_medium_processed")
 
     train_dataset = dataset["train"].with_format("torch")
     eval_dataset = dataset["validation"].with_format("torch")
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     pretrained = Model.from_pretrained("pyannote/segmentation-3.0", use_auth_token=True)
     config = SegmentationModelConfig()
     model = SegmentationModel(config)
-    model.copy_weights(pretrained)
+    model.from_pyannote_model(pretrained)
 
     metric = Metrics(model.specifications)
 

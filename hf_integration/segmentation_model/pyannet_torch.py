@@ -64,7 +64,6 @@ class PyanNet(torch.nn.Module):
         linear: Optional[dict] = None,
         sample_rate: int = 16000,
         num_channels: int = 1,
-        # task: Optional[Task] = None,
     ):
 
         super(PyanNet, self).__init__()
