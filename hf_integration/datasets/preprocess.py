@@ -91,7 +91,7 @@ def get_start_positions(file, duration, overlap):
 
     sample_rate = file["audio"][0]["sampling_rate"]
     file_duration = len(file["audio"][0]["array"]) / sample_rate
-    start_positions = np.arange(0, file_duration, duration * (1 - overlap))
+    start_positions = np.arange(0, file_duration - duration, duration * (1 - overlap))
 
     return start_positions
 
@@ -160,12 +160,14 @@ def preprocess_spd_dataset(ds, chunk_duration):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--chunk_duration", help="", default="2")
+    parser.add_argument("--chunk_duration", help="", default="10")
 
     args = parser.parse_args()
 
     ds = load_dataset("kamilakesbi/ami_spd_medium_test")
 
-    processed_dataset = preprocess_spd_dataset(ds, chunk_duration=args.chunk_duration)
+    processed_dataset = preprocess_spd_dataset(
+        ds, chunk_duration=int(args.chunk_duration)
+    )
 
     processed_dataset.push_to_hub("kamilakesbi/ami_spd_medium_processed")
