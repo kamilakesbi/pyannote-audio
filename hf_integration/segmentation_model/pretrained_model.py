@@ -23,13 +23,15 @@ class SegmentationModelConfig(PretrainedConfig):
 
 
 class SegmentationModel(PreTrainedModel):
+    config_class = SegmentationModelConfig
+
     def __init__(
         self,
         config,
-        duration=2,
-        max_speakers_per_frame=None,
+        duration=10,
+        max_speakers_per_frame=2,
         max_speakers_per_chunk=3,
-        min_duration=2,
+        min_duration=None,
         warm_up=(0.0, 0.0),
         weigh_by_cardinality=False,
     ):
