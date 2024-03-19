@@ -134,6 +134,7 @@ def preprocess_spd_dataset(ds, chunk_duration):
         batched=True,
         batch_size=1,
         remove_columns=ds["train"].column_names,
+        num_proc=24,
     )
 
     processed_spd_dataset["validation"] = ds["validation"].map(
@@ -143,6 +144,7 @@ def preprocess_spd_dataset(ds, chunk_duration):
         batched=True,
         batch_size=1,
         remove_columns=ds["validation"].column_names,
+        num_proc=24,
     )
 
     processed_spd_dataset["test"] = ds["test"].map(
@@ -152,6 +154,7 @@ def preprocess_spd_dataset(ds, chunk_duration):
         batched=True,
         batch_size=1,
         remove_columns=ds["test"].column_names,
+        num_proc=24,
     )
 
     return processed_spd_dataset
@@ -164,10 +167,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    ds = load_dataset("kamilakesbi/ami_spd_medium_test")
+    ds = load_dataset("kamilakesbi/ami_spd_large_test")
 
     processed_dataset = preprocess_spd_dataset(
         ds, chunk_duration=int(args.chunk_duration)
     )
 
-    processed_dataset.push_to_hub("kamilakesbi/ami_spd_medium_processed")
+    processed_dataset.push_to_hub("kamilakesbi/ami_spd_large_processed")

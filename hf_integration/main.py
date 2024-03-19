@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-    dataset = load_dataset("kamilakesbi/ami_spd_medium_processed")
+    dataset = load_dataset("kamilakesbi/ami_spd_large_processed")
 
     train_dataset = dataset["train"].with_format("torch")
     eval_dataset = dataset["validation"].with_format("torch")
@@ -29,7 +29,7 @@ if __name__ == "__main__":
         gradient_accumulation_steps=1,
         per_device_eval_batch_size=32,
         dataloader_num_workers=8,
-        num_train_epochs=3,
+        num_train_epochs=5,
         logging_steps=200,
         load_best_model_at_end=True,
         push_to_hub=False,

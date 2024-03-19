@@ -125,13 +125,13 @@ def create_spd_dataset(
         for meeting in meetings:
             print(meeting)
             dataset = ds[str(subset)].filter(
-                lambda x: x["meeting_id"] == str(meeting), num_proc=8
+                lambda x: x["meeting_id"] == str(meeting), num_proc=24
             )
 
             dataset = dataset.sort("begin_time")
-            dataset = dataset.select(
-                range(min(nb_samples_per_meeting * batch_size, dataset.num_rows))
-            )
+            # dataset = dataset.select(
+            #     range(min(nb_samples_per_meeting * batch_size, dataset.num_rows))
+            # )
 
             audio_dur = np.random.normal(audio_dur_mean, audio_dur_std)
 
@@ -140,6 +140,7 @@ def create_spd_dataset(
                 batched=True,
                 batch_size=batch_size,
                 remove_columns=dataset.column_names,
+                num_proc=24,
             )
 
             concatenate_dataset = concatenate_datasets([concatenate_dataset, result])
@@ -178,4 +179,4 @@ if __name__ == "__main__":
         audio_dur_std=int(args.audio_dur_std),
         nb_meetings=nb_meetings,
     )
-    spk_dataset.push_to_hub("kamilakesbi/ami_spd_medium_test")
+    spk_dataset.push_to_hub("kamilakesbi/ami_spd_large_test")
