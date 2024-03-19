@@ -9,7 +9,7 @@ from segmentation_model.pretrained_model import (
 from train import DataCollator
 from transformers import Trainer, TrainingArguments
 
-from pyannote.audio import Inference, Model
+from pyannote.audio import Model
 
 if __name__ == "__main__":
 
@@ -42,25 +42,6 @@ if __name__ == "__main__":
     model.from_pyannote_model(pretrained)
 
     metric = Metrics(model.specifications)
-
-    def test(model, protocol, subset="test"):
-        from pyannote.audio.pipelines.utils import get_devices
-        from pyannote.audio.utils.metric import DiscreteDiarizationErrorRate
-        from pyannote.audio.utils.signal import binarize
-
-        (device,) = get_devices(needs=1)
-        metric = DiscreteDiarizationErrorRate()
-        files = list(getattr(protocol, subset)())
-
-        inference = Inference(model, device=device)
-
-        for file in files:
-            reference = file["annotation"]
-            hypothesis = binarize(inference(file))
-            uem = file["annotated"]
-            _ = metric(reference, hypothesis, uem=uem)
-
-        return abs(metric)
 
     trainer = Trainer(
         model=model,
