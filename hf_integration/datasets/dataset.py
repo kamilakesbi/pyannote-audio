@@ -153,12 +153,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--bs", help="", default="32")
-    parser.add_argument("--samples_per_meeting", help="", default="10")
+    parser.add_argument("--samples_per_meeting", help="", default="20")
     parser.add_argument("--audio_dur_mean", help="", default="60")
     parser.add_argument("--audio_dur_std", help="", default="10")
-    parser.add_argument("--nb_meetings_train", help="", default="15")
-    parser.add_argument("--nb_meetings_val", help="", default="5")
-    parser.add_argument("--nb_meetings_test", help="", default="5")
+    parser.add_argument("--nb_meetings_train", help="", default="-1")
+    parser.add_argument("--nb_meetings_val", help="", default="-1")
+    parser.add_argument("--nb_meetings_test", help="", default="-1")
 
     args = parser.parse_args()
 

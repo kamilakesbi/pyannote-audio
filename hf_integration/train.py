@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-from torch.nn.utils.rnn import pad_sequence
 
 
 def pad_targets(labels, speakers, max_speakers_per_chunk=3):
@@ -37,10 +36,7 @@ class DataCollator:
         labels = [f["labels"] for f in features]
 
         batch["labels"] = pad_targets(labels, speakers)
-        # batch["labels"] = pad_sequence(
-        #     [f["labels"] for f in features], batch_first=True, padding_value=0
-        # )
-        batch["waveforms"] = pad_sequence(
-            [f["waveforms"] for f in features], batch_first=True, padding_value=0
-        )
+
+        batch["waveforms"] = torch.stack([f["waveforms"] for f in features])
+
         return batch
