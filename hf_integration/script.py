@@ -2,9 +2,8 @@ import argparse
 import os
 
 from asr_to_spd_datasets.preprocess import preprocess_spd_dataset
-from compare_models import test
 from datasets import load_dataset
-from metrics import Metrics
+from metrics import Metrics, test
 from pyannote.database import registry
 from segmentation_model.pretrained_model import (
     SegmentationModel,
@@ -36,7 +35,7 @@ if __name__ == "__main__":
     # Training Arguments:
     parser.add_argument("--learning_rate", help="", default=1e-3)
     parser.add_argument("--batch_size", help="", default=32)
-    parser.add_argument("--epochs", help="", default=5)
+    parser.add_argument("--epochs", help="", default=3)
 
     # Model Arguments:
     parser.add_argument("--from_pretrained", help="", default=True)
@@ -73,17 +72,20 @@ if __name__ == "__main__":
     metric = Metrics(model.specifications)
 
     training_args = TrainingArguments(
-        output_dir="checkpoints/",
+        output_dir="output/",
         evaluation_strategy="epoch",
         save_strategy="epoch",
-        learning_rate=int(args.learning_rate),
-        per_device_train_batch_size=int(args.batch_size),
-        per_device_eval_batch_size=int(args.batch_size),
+        learning_rate=1e-3,
+        per_device_train_batch_size=32,
+        gradient_accumulation_steps=1,
+        per_device_eval_batch_size=32,
         dataloader_num_workers=8,
-        num_train_epochs=int(args.epochs),
+        num_train_epochs=8,
+        logging_steps=200,
         load_best_model_at_end=True,
         push_to_hub=False,
         save_safetensors=False,
+        seed=42,
     )
 
     trainer = Trainer(

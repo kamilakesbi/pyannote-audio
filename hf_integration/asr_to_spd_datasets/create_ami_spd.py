@@ -55,7 +55,7 @@ def concatenate(files, audio_duration=50):
         if samples_start > chunk_end:
             break
 
-        audio_chunk[start_index : start_index + segment_length] = audio_segment[
+        audio_chunk[start_index : start_index + segment_length] += audio_segment[
             :segment_length
         ]
 
