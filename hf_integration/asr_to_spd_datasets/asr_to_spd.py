@@ -35,34 +35,21 @@ model, utils = torch.hub.load(
 get_speech_timestamps = utils[0]
 
 
-def refine_timestamps(
-    audio_file, sample_rate, speakers, file_timestamps_start, file_timestamps_end
-):
+def refine_timestamps(audio_segment, sample_rate, speaker, start, end):
 
-    file_timestamps_start_vad = []
-    file_timestamps_end_vad = []
-    speakers_vad = []
+    speech_timestamps = get_speech_timestamps(
+        audio_segment, model, sampling_rate=sample_rate
+    )
 
-    for i in range(len(speakers)):
+    file_timestamps_start = [
+        start + timestamps["start"] / 16000 for timestamps in speech_timestamps
+    ]
+    file_timestamps_end = [
+        start + timestamps["end"] / 16000 for timestamps in speech_timestamps
+    ]
+    speakers = [speaker] * len(speech_timestamps)
 
-        start = file_timestamps_start[i]
-        end = file_timestamps_end[i]
-        start_index = int(start * sample_rate)
-        end_index = int(end * sample_rate)
-
-        speech_timestamps = get_speech_timestamps(
-            audio_file[start_index:end_index], model, sampling_rate=sample_rate
-        )
-
-        file_timestamps_start_vad += [
-            start + timestamps["start"] / 16000 for timestamps in speech_timestamps
-        ]
-        file_timestamps_end_vad += [
-            start + timestamps["end"] / 16000 for timestamps in speech_timestamps
-        ]
-        speakers_vad += [speakers[i]] * len(speech_timestamps)
-
-    return (file_timestamps_start_vad, file_timestamps_end_vad, speakers_vad)
+    return (file_timestamps_start, file_timestamps_end, speakers)
 
 
 def concatenate_no_timestamps(
@@ -94,49 +81,60 @@ def concatenate_no_timestamps(
     ]
 
     audio_duration = estimate_audio_duration(batch, sr, audio_file_length)
-    audio_file = np.zeros(int(audio_duration * sr))
+    audio_file = np.zeros(int(audio_duration * sample_rate))
     audio_file_length = len(audio_file)
+
+    start = 0
 
     file_timestamps_start = []
     file_timestamps_end = []
     speakers = []
 
-    start = 0
-
     for element in batch:
+
         audio_segment = element["audio"]["array"]
-        dur = len(audio_segment) / sr
+
+        if sample_rate:
+            resample = T.Resample(sr, sample_rate)
+            audio_segment = (
+                resample(torch.tensor(audio_segment, dtype=torch.float32)).cpu().numpy()
+            )
+
+        dur = len(audio_segment) / sample_rate
         end = start + dur
 
-        file_timestamps_start.append(start)
-        file_timestamps_end.append(end)
-        speakers.append(element["client_id"])
-
-        start_index = int(start * sr)
+        start_index = int(start * sample_rate)
 
         if start_index >= audio_file_length:
             break
 
         segment_length = min(audio_file_length - start_index, len(audio_segment))
 
+        if refine_with_vad:
+            (
+                file_timestamps_start_vad,
+                file_timestamps_end_vad,
+                speakers_vad,
+            ) = refine_timestamps(
+                audio_segment,
+                sample_rate,
+                element["client_id"],
+                start,
+                end,
+            )
+            file_timestamps_start += file_timestamps_start_vad
+            file_timestamps_end += file_timestamps_end_vad
+            speakers += speakers_vad
+
+        else:
+            file_timestamps_start.append(start)
+            file_timestamps_end.append(end)
+            speakers.append(element["client_id"])
+
         audio_file[start_index : start_index + segment_length] += audio_segment[
             :segment_length
         ]
-
         start = max(int(0), np.random.normal(end, std_concatenate))
-
-    if sample_rate:
-        resample = T.Resample(sr, sample_rate)
-        audio_file = resample(torch.tensor(audio_file, dtype=torch.float32))
-
-    if refine_with_vad:
-        file_timestamps_start, file_timestamps_end, speakers = refine_timestamps(
-            audio_file,
-            sample_rate,
-            speakers,
-            file_timestamps_start,
-            file_timestamps_end,
-        )
 
     audio_file = {
         "array": np.array(audio_file),
