@@ -1,7 +1,19 @@
 import numpy as np
+import torch
+import torchaudio.transforms as T
 from datasets import load_dataset
 
+# 1. visit hf.co/pyannote/segmentation and accept user conditions
+# 2. visit hf.co/settings/tokens to create an access token
+# 3. instantiate pretrained voice activity detection pipeline
+
+
 common_voice = load_dataset("mozilla-foundation/common_voice_16_1", "en", num_proc=24)
+
+
+torch.hub.download_url_to_file(
+    "https://models.silero.ai/vad_models/en.wav", "en_example.wav"
+)
 
 
 def estimate_audio_duration(batch, sr, audio_file_length=0.9):
@@ -15,7 +27,51 @@ def estimate_audio_duration(batch, sr, audio_file_length=0.9):
     return audio_duration
 
 
-def concatenate_no_timestamps(files, audio_file_length=1.1, std_concatenate=3):
+torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
+model, utils = torch.hub.load(
+    repo_or_dir="snakers4/silero-vad", model="silero_vad", force_reload=True
+)
+
+get_speech_timestamps = utils[0]
+
+
+def refine_timestamps(
+    audio_file, sample_rate, speakers, file_timestamps_start, file_timestamps_end
+):
+
+    file_timestamps_start_vad = []
+    file_timestamps_end_vad = []
+    speakers_vad = []
+
+    for i in range(len(speakers)):
+
+        start = file_timestamps_start[i]
+        end = file_timestamps_end[i]
+        start_index = int(start * sample_rate)
+        end_index = int(end * sample_rate)
+
+        speech_timestamps = get_speech_timestamps(
+            audio_file[start_index:end_index], model, sampling_rate=sample_rate
+        )
+
+        file_timestamps_start_vad += [
+            start + timestamps["start"] / 16000 for timestamps in speech_timestamps
+        ]
+        file_timestamps_end_vad += [
+            start + timestamps["end"] / 16000 for timestamps in speech_timestamps
+        ]
+        speakers_vad += [speakers[i]] * len(speech_timestamps)
+
+    return (file_timestamps_start_vad, file_timestamps_end_vad, speakers_vad)
+
+
+def concatenate_no_timestamps(
+    files,
+    audio_file_length=1.1,
+    std_concatenate=3,
+    sample_rate=16000,
+    refine_with_vad=True,
+):
 
     """_summary_
 
@@ -69,9 +125,22 @@ def concatenate_no_timestamps(files, audio_file_length=1.1, std_concatenate=3):
 
         start = max(int(0), np.random.normal(end, std_concatenate))
 
+    if sample_rate:
+        resample = T.Resample(sr, sample_rate)
+        audio_file = resample(torch.tensor(audio_file, dtype=torch.float32))
+
+    if refine_with_vad:
+        file_timestamps_start, file_timestamps_end, speakers = refine_timestamps(
+            audio_file,
+            sample_rate,
+            speakers,
+            file_timestamps_start,
+            file_timestamps_end,
+        )
+
     audio_file = {
-        "array": audio_file,
-        "sampling_rate": sr,
+        "array": np.array(audio_file),
+        "sampling_rate": sample_rate,
     }
 
     new_batch["speakers"].append(speakers)
@@ -89,16 +158,18 @@ dataset = dataset.select(range(200))
 dataset = dataset.select_columns(["client_id", "audio"])
 
 audio_file_length = 1.1
-std_concatenate = 3
+std_concatenate = 2
+sample_rate = 16000
+refine_with_vad = True
 
 dataset = dataset.map(
     lambda example: concatenate_no_timestamps(
-        example, audio_file_length, std_concatenate
+        example, audio_file_length, std_concatenate, sample_rate, refine_with_vad
     ),
     batched=True,
-    batch_size=16,
+    batch_size=8,
     remove_columns=dataset.column_names,
-    num_proc=24,
+    num_proc=1,
 )
 
 dataset.push_to_hub("kamilakesbi/commonvoice_en_spd_train_small_test")
