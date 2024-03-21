@@ -26,6 +26,15 @@ def get_labels_in_file(file):
 
 
 def get_segments_in_file(file, labels):
+    """_summary_
+
+    Args:
+        file (_type_): _description_
+        labels (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
 
     file_annotations = []
 
@@ -44,6 +53,16 @@ def get_segments_in_file(file, labels):
 
 
 def get_chunk(file, start_time, duration):
+    """_summary_
+
+    Args:
+        file (_type_): _description_
+        start_time (_type_): _description_
+        duration (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
 
     sample_rate = file["audio"][0]["sampling_rate"]
     end_time = start_time + duration
@@ -88,6 +107,16 @@ def get_chunk(file, start_time, duration):
 
 
 def get_start_positions(file, duration, overlap):
+    """_summary_
+
+    Args:
+        file (_type_): _description_
+        duration (_type_): _description_
+        overlap (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
 
     sample_rate = file["audio"][0]["sampling_rate"]
     file_duration = len(file["audio"][0]["array"]) / sample_rate
@@ -97,6 +126,17 @@ def get_start_positions(file, duration, overlap):
 
 
 def chunk_file(file, duration=2, select_random=False, overlap=0.0):
+    """_summary_
+
+    Args:
+        file (_type_): _description_
+        duration (int, optional): _description_. Defaults to 2.
+        select_random (bool, optional): _description_. Defaults to False.
+        overlap (float, optional): _description_. Defaults to 0.0.
+
+    Returns:
+        _type_: _description_
+    """
 
     new_batch = {"waveforms": [], "labels": [], "nb_speakers": []}
 
@@ -117,6 +157,15 @@ def chunk_file(file, duration=2, select_random=False, overlap=0.0):
 
 
 def preprocess_spd_dataset(ds, chunk_duration):
+    """_summary_
+
+    Args:
+        ds (_type_): _description_
+        chunk_duration (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
 
     processed_spd_dataset = DatasetDict(
         {

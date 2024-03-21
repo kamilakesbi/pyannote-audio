@@ -37,8 +37,6 @@ if __name__ == "__main__":
     # Model Arguments:
     parser.add_argument("--from_pretrained", help="", default=True)
 
-    # Train arguments:
-
     # Test arguments:
     parser.add_argument("--do_test", help="", default=True)
 
@@ -77,7 +75,7 @@ if __name__ == "__main__":
         gradient_accumulation_steps=1,
         per_device_eval_batch_size=32,
         dataloader_num_workers=8,
-        num_train_epochs=8,
+        num_train_epochs=3,
         logging_steps=200,
         load_best_model_at_end=True,
         push_to_hub=False,
@@ -89,7 +87,7 @@ if __name__ == "__main__":
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        data_collator=DataCollator(),
+        data_collator=DataCollator(max_speakers_per_chunk=3),
         eval_dataset=eval_dataset,
         compute_metrics=metric.der_metric,
     )
@@ -112,4 +110,4 @@ if __name__ == "__main__":
         spk_probability = Inference(model, step=2.5)(test_file)
 
         der_pretrained = test(model=model, protocol=ami, subset="test")
-        print(f"Local DER (fine-tuned) = {der_pretrained * 100:.1f}%")
+        print(f"Local DER (fine-tuned) = {der_pretrained}%")

@@ -1,13 +1,20 @@
 import numpy as np
 import torch
 import torchaudio.transforms as T
-from audiomentations import AddBackgroundNoise, ApplyImpulseResponse, Compose
+from audiomentations import (
+    AddBackgroundNoise,
+    AddGaussianSNR,
+    ApplyImpulseResponse,
+    Compose,
+)
 from datasets import Dataset, DatasetDict, load_dataset
 from denoiser import pretrained
 from denoiser.dsp import convert_audio
 
 
 class ASR_to_SPD_dataset:
+    """_summary_"""
+
     def __init__(
         self,
         config,
@@ -39,12 +46,26 @@ class ASR_to_SPD_dataset:
 
             self.augmentation_pipeline = Compose(
                 [
-                    ApplyImpulseResponse(self.ir_path, p=0.8),
-                    AddBackgroundNoise(self.bn_path, 10, 15, p=0.8),
+                    ApplyImpulseResponse(self.ir_path, p=0.3),
+                    AddBackgroundNoise(self.bn_path, 30, 50, p=0.1),
+                    AddGaussianSNR(
+                        min_snr_db=30.0,
+                        max_snr_db=50.0,
+                        p=0.2,
+                    ),
                 ]
             )
 
     def estimate_audio_duration(self, batch, sr):
+        """_summary_
+
+        Args:
+            batch (_type_): _description_
+            sr (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
 
         audio_duration = 0
         for row in batch:
@@ -55,10 +76,26 @@ class ASR_to_SPD_dataset:
         return audio_duration
 
     def normalize_audio(self, audio_segment):
+        """_summary_
+
+        Args:
+            audio_segment (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
 
         return audio_segment / max(np.max(audio_segment), -np.min(audio_segment))
 
     def denoise_audio(self, audio_file):
+        """_summary_
+
+        Args:
+            audio_file (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
 
         audio_file_converted = convert_audio(
             torch.tensor(audio_file).unsqueeze(0).cuda(),
@@ -79,6 +116,14 @@ class ASR_to_SPD_dataset:
         return audio_file
 
     def augment_audio(self, audio_file):
+        """_summary_
+
+        Args:
+            audio_file (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
 
         audio_file = self.augmentation_pipeline(
             samples=audio_file, sample_rate=self.sample_rate
@@ -107,8 +152,10 @@ class ASR_to_SPD_dataset:
         self,
         files,
     ):
-
         """_summary_
+
+        Args:
+            files (_type_): _description_
 
         Returns:
             _type_: _description_
@@ -217,6 +264,19 @@ def create_spd_dataset_from_asr(
     batch_size,
     num_proc=12,
 ):
+    """_summary_
+
+    Args:
+        asr_dataset (_type_): _description_
+        speaker_column_name (_type_): _description_
+        audio_column_name (_type_): _description_
+        config (_type_): _description_
+        batch_size (_type_): _description_
+        num_proc (int, optional): _description_. Defaults to 12.
+
+    Returns:
+        _type_: _description_
+    """
 
     subsets = ["train", "validation", "test"]
 

@@ -22,7 +22,9 @@ class Dict(dict):
 
 
 class PyanNet_nn(torch.nn.Module):
-    """PyanNet segmentation model
+    """PyanNet segmentation model adapted from PyanNet model used in pyannote.
+    Inherits from nn.Module (no more dependency to pytorch Lightning)
+    Doesn't need the task attribute anymore.
 
     SincNet > LSTM > Feed forward > Classifier
 

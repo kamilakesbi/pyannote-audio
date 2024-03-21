@@ -13,6 +13,8 @@ from pyannote.audio.utils.powerset import Powerset
 
 
 class SegmentationModelConfig(PretrainedConfig):
+    """Config class associated with SegmentationModel model."""
+
     model_type = "pyannet"
 
     def __init__(
@@ -23,6 +25,12 @@ class SegmentationModelConfig(PretrainedConfig):
 
 
 class SegmentationModel(PreTrainedModel):
+    """
+    Wrapper class for the PyanNet segmentation model used in pyannote.
+    Inherits from Pretrained model to be compatible with the HF Trainer.
+    Can be used to train segmentation models adapted for the "SpeakerDiarisation Task" in pyannote.
+    """
+
     config_class = SegmentationModelConfig
 
     def __init__(
@@ -35,6 +43,37 @@ class SegmentationModel(PreTrainedModel):
         warm_up=(0.0, 0.0),
         weigh_by_cardinality=False,
     ):
+        """init method
+
+        Args:
+            config (_type_): instance of SegmentationModelConfig.
+            min_duration (_type_, optional): _description_. Defaults to None.
+            duration : float, optional
+                    Chunks duration processed by the model. Defaults to 10s.
+            max_speakers_per_chunk : int, optional
+                Maximum number of speakers per chunk.
+            max_speakers_per_frame : int, optional
+                Maximum number of (overlapping) speakers per frame.
+                Setting this value to 1 or more enables `powerset multi-class` training.
+                Default behavior is to use `multi-label` training.
+            weigh_by_cardinality: bool, optional                NOT IMPPLEMENTED HERE!
+                Weigh each powerset classes by the size of the corresponding speaker set.
+                In other words, {0, 1} powerset class weight is 2x bigger than that of {0}
+                or {1} powerset classes. Note that empty (non-speech) powerset class is
+                assigned the same weight as mono-speaker classes. Defaults to False (i.e. use
+                same weight for every class). Has no effect with `multi-label` training.
+
+            min_duration : float, optional                      NOT IMPLEMENTED HERE!
+                Sample training chunks duration uniformely between `min_duration`
+                and `duration`. Defaults to `duration` (i.e. fixed length chunks).
+            warm_up : float or (float, float), optional
+                Use that many seconds on the left- and rightmost parts of each chunk
+                to warm up the model. While the model does process those left- and right-most
+                parts, only the remaining central part of each chunk is used for computing the
+                loss during training, and for aggregating scores during inference.
+                Defaults to 0. (i.e. no warm-up).
+        """
+
         super().__init__(config)
         self.model = PyanNet_nn(sincnet={"stride": 10})
 
@@ -57,6 +96,16 @@ class SegmentationModel(PreTrainedModel):
         self.setup_loss_func()
 
     def forward(self, waveforms, labels=None, nb_speakers=None):
+        """foward pass of the Pretrained Model.
+
+        Args:
+            waveforms (_type_): _description_
+            labels (_type_, optional): _description_. Defaults to None.
+            nb_speakers (_type_, optional): _description_. Defaults to None.
+
+        Returns:
+            _type_: _description_
+        """
 
         prediction = self.model(waveforms.unsqueeze(1))
         batch_size, num_frames, _ = prediction.shape
@@ -100,6 +149,7 @@ class SegmentationModel(PreTrainedModel):
         return {"logits": prediction}
 
     def setup_loss_func(self):
+        """setup the loss function is self.specifications.powerset is True."""
         if self.specifications.powerset:
             self.model.powerset = Powerset(
                 len(self.specifications.classes),
@@ -150,6 +200,11 @@ class SegmentationModel(PreTrainedModel):
         return seg_loss
 
     def from_pyannote_model(self, pretrained):
+        """Copy the weights and architecture of a pre-trained Pyannote model.
+
+        Args:
+            pretrained (pyannote.core.Model): pretrained pyannote segmentation model.
+        """
 
         self.model.hparams = copy.deepcopy(pretrained.hparams)
 
@@ -175,6 +230,7 @@ class SegmentationModel(PreTrainedModel):
         self.setup_loss_func()
 
     def to_pyannote_model(self):
+        """Convert the current model to a pyanote segmentation model for use in pyannote pipelines."""
 
         seg_model = PyanNet(sincnet={"stride": 10})
         seg_model.hparams.update(self.model.hparams)
