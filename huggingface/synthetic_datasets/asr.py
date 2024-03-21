@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torchaudio.transforms as T
 from datasets import load_dataset
+from torchaudio import transforms
 
 # from speechbrain.pretrained import SepformerSeparation as separator
 
@@ -46,6 +47,18 @@ def refine_timestamps(audio_segment, sample_rate, speaker, start, end):
     return (file_timestamps_start, file_timestamps_end, speakers)
 
 
+def adjust_loudness(audio_segment, sample_rate, target_loudness):
+
+    loudness = transforms.Loudness(sample_rate)
+    estimated_loudness = (
+        loudness(torch.tensor(audio_segment).unsqueeze(0)).cpu().numpy()
+    )
+
+    audio_segment = audio_segment * (10 ** (target_loudness - estimated_loudness / 20))
+
+    return audio_segment
+
+
 def concatenate_no_timestamps(
     files,
     audio_file_length=1.1,
@@ -53,6 +66,8 @@ def concatenate_no_timestamps(
     sample_rate=16000,
     refine_with_vad=True,
     enhance=True,
+    align_loudness=True,
+    target_loudness=None,
 ):
 
     """_summary_
@@ -94,6 +109,10 @@ def concatenate_no_timestamps(
             audio_segment = (
                 resample(torch.tensor(audio_segment, dtype=torch.float32)).cpu().numpy()
             )
+
+        if align_loudness:
+            sample_rate = sample_rate if sample_rate else sr
+            adjust_loudness(audio_segment, sample_rate, target_loudness)
 
         # if enhance:
         #     audio_segment = enhancer_model(torch.tensor(audio_segment).unsqueeze(0)).squeeze(0,2).cpu().numpy()
@@ -158,10 +177,20 @@ std_concatenate = 2
 sample_rate = 16000
 refine_with_vad = True
 enhance = False
+align_loudness = True
+target_loudness = -20
+
 
 dataset = dataset.map(
     lambda example: concatenate_no_timestamps(
-        example, audio_file_length, std_concatenate, sample_rate, refine_with_vad
+        example,
+        audio_file_length,
+        std_concatenate,
+        sample_rate,
+        refine_with_vad,
+        enhance,
+        align_loudness,
+        target_loudness,
     ),
     batched=True,
     batch_size=8,

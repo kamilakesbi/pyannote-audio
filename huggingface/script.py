@@ -1,14 +1,11 @@
 import argparse
 import os
 
-from asr_to_spd_datasets.preprocess import preprocess_spd_dataset
 from datasets import load_dataset
 from metrics import Metrics, test
 from pyannote.database import registry
-from segmentation_model.pretrained_model import (
-    SegmentationModel,
-    SegmentationModelConfig,
-)
+from segmentation.pretrained_model import SegmentationModel, SegmentationModelConfig
+from synthetic_datasets.preprocess import preprocess_spd_dataset
 from transformers import Trainer, TrainingArguments
 
 from huggingface.utils import DataCollator

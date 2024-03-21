@@ -1,9 +1,6 @@
 from metrics import test
 from pyannote.database import registry
-from segmentation_model.pretrained_model import (
-    SegmentationModel,
-    SegmentationModelConfig,
-)
+from segmentation.pretrained_model import SegmentationModel, SegmentationModelConfig
 
 from pyannote.audio import Inference, Model
 from pyannote.audio.tasks import SpeakerDiarization
