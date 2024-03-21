@@ -211,6 +211,8 @@ class ASR_to_SPD_dataset:
 
 def create_spd_dataset_from_asr(
     asr_dataset,
+    speaker_column_name,
+    audio_column_name,
     config,
     batch_size,
     num_proc=12,
@@ -226,7 +228,7 @@ def create_spd_dataset_from_asr(
         }
     )
 
-    asr_dataset.select_columns(["client_id", "audio"])
+    asr_dataset.select_columns([str(speaker_column_name), str(audio_column_name)])
 
     asr_to_spd = ASR_to_SPD_dataset(config)
 
@@ -272,7 +274,12 @@ if __name__ == "__main__":
     audio_column_name = "audio"
 
     spd_dataset = create_spd_dataset_from_asr(
-        common_voice, config, batch_size, num_proc
+        common_voice,
+        speaker_column_name,
+        audio_column_name,
+        config,
+        batch_size,
+        num_proc,
     )
 
     spd_dataset.push_to_hub("kamilakesbi/commonvoice_en_spd_train_small_test")
