@@ -106,7 +106,7 @@ def get_chunk(file, start_time, duration):
     return waveform, y, labels
 
 
-def get_start_positions(file, duration, overlap):
+def get_start_positions(file, duration, overlap, random=False):
     """_summary_
 
     Args:
@@ -121,6 +121,11 @@ def get_start_positions(file, duration, overlap):
     sample_rate = file["audio"][0]["sampling_rate"]
     file_duration = len(file["audio"][0]["array"]) / sample_rate
     start_positions = np.arange(0, file_duration - duration, duration * (1 - overlap))
+
+    if random:
+
+        nb_samples = int(file_duration / duration)
+        start_positions = np.random.uniform(0, file_duration, nb_samples)
 
     return start_positions
 
@@ -141,7 +146,7 @@ def chunk_file(file, duration=2, select_random=False, overlap=0.0):
     new_batch = {"waveforms": [], "labels": [], "nb_speakers": []}
 
     if select_random:
-        start_positions = get_start_positions(file, duration, overlap)
+        start_positions = get_start_positions(file, duration, overlap, random=True)
     else:
         start_positions = get_start_positions(file, duration, overlap)
 
@@ -177,13 +182,14 @@ def preprocess_spd_dataset(ds, chunk_duration):
 
     processed_spd_dataset["train"] = ds["train"].map(
         lambda file: chunk_file(
-            file, duration=chunk_duration, select_random=True, overlap=0.0
+            file, duration=chunk_duration, select_random=False, overlap=0.5
         ),
         batched=True,
         batch_size=1,
         remove_columns=ds["train"].column_names,
         num_proc=24,
     )
+    processed_spd_dataset["train"] = processed_spd_dataset["train"].shuffle(seed=42)
 
     processed_spd_dataset["validation"] = ds["validation"].map(
         lambda file: chunk_file(
@@ -197,11 +203,11 @@ def preprocess_spd_dataset(ds, chunk_duration):
 
     processed_spd_dataset["test"] = ds["test"].map(
         lambda file: chunk_file(
-            file, duration=chunk_duration, select_random=False, overlap=0.0
+            file, duration=chunk_duration, select_random=False, overlap=0.75
         ),
         batched=True,
         batch_size=1,
-        remove_columns=ds["test"].column_names,
+        remove_columns=ds["validation"].column_names,
         num_proc=24,
     )
 
@@ -215,10 +221,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    ds = load_dataset("kamilakesbi/ami_spd_large_test")
+    ds = load_dataset("kamilakesbi/ami_spd_bs_32", num_proc=12)
 
     processed_dataset = preprocess_spd_dataset(
         ds, chunk_duration=int(args.chunk_duration)
     )
 
-    processed_dataset.push_to_hub("kamilakesbi/ami_spd_large_processed")
+    processed_dataset.push_to_hub("kamilakesbi/ami_spd_bs_32_processed")

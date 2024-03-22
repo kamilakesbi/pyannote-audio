@@ -135,7 +135,7 @@ def create_spd_dataset(
                 batched=True,
                 batch_size=batch_size,
                 remove_columns=dataset.column_names,
-                num_proc=12,
+                num_proc=1,
                 # keep_in_memory=True,
             )
 

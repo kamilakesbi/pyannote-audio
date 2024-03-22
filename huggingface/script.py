@@ -21,11 +21,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--load_processed_dataset",
         help="",
-        default="kamilakesbi/ami_spd_large_processed",
+        default="kamilakesbi/ami_spd_nobatch_full",
     )
-    parser.add_argument(
-        "--dataset_name", help="", default="kamilakesbi/ami_spd_large_test"
-    )
+    parser.add_argument("--dataset_name", help="", default="kamilakesbi/ami_spd_bs_32")
     # Preprocess arguments:
     parser.add_argument("--chunk_duration", help="", default="10")
 
@@ -38,15 +36,16 @@ if __name__ == "__main__":
     parser.add_argument("--from_pretrained", help="", default=True)
 
     # Test arguments:
+    parser.add_argument("--do_init_eval", help="", default=True)
     parser.add_argument("--do_test", help="", default=True)
 
     args = parser.parse_args()
 
     if str(args.load_processed_dataset):
 
-        dataset = load_dataset(str(args.load_processed_dataset))
+        dataset = load_dataset(str(args.load_processed_dataset), num_proc=12)
     else:
-        dataset = load_dataset(str(args.dataset_name))
+        dataset = load_dataset(str(args.dataset_name), num_proc=12)
         dataset = preprocess_spd_dataset(
             dataset, chunk_duration=str(args.chunk_duration)
         )
@@ -91,6 +90,10 @@ if __name__ == "__main__":
         eval_dataset=eval_dataset,
         compute_metrics=metric.der_metric,
     )
+
+    if str(args.do_init_eval):
+        first_eval = trainer.evaluate()
+        print("Initial metric values: ", first_eval)
     trainer.train()
 
     if str(args.do_test):
