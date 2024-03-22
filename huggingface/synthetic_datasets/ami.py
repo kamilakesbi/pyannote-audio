@@ -85,10 +85,7 @@ def concatenate(files):
 
 def create_spd_dataset(
     ds,
-    nb_samples_per_meeting,
     batch_size,
-    audio_dur_mean,
-    audio_dur_std,
     nb_meetings,
 ):
 
@@ -132,14 +129,13 @@ def create_spd_dataset(
             )
 
             dataset = dataset.sort("begin_time")
-            # audio_dur = np.random.normal(audio_dur_mean, audio_dur_std)
 
             result = dataset.map(
                 lambda example: concatenate(example),
                 batched=True,
                 batch_size=batch_size,
                 remove_columns=dataset.column_names,
-                num_proc=24,
+                num_proc=12,
                 # keep_in_memory=True,
             )
 
@@ -153,10 +149,7 @@ def create_spd_dataset(
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--bs", help="", default="256")
-    parser.add_argument("--samples_per_meeting", help="", default="20")
-    parser.add_argument("--audio_dur_mean", help="", default="120")
-    parser.add_argument("--audio_dur_std", help="", default="10")
+    parser.add_argument("--bs", help="", default="-1")
     parser.add_argument("--nb_meetings_train", help="", default="-1")
     parser.add_argument("--nb_meetings_val", help="", default="-1")
     parser.add_argument("--nb_meetings_test", help="", default="-1")
@@ -173,10 +166,7 @@ if __name__ == "__main__":
 
     spk_dataset = create_spd_dataset(
         ds,
-        nb_samples_per_meeting=int(args.samples_per_meeting),
         batch_size=int(args.bs),
-        audio_dur_mean=int(args.audio_dur_mean),
-        audio_dur_std=int(args.audio_dur_std),
         nb_meetings=nb_meetings,
     )
-    spk_dataset.push_to_hub("kamilakesbi/ami_spd_bs_256")
+    spk_dataset.push_to_hub("kamilakesbi/ami_spd_nobatch_full")
