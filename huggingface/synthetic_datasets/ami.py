@@ -4,7 +4,7 @@ import numpy as np
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
 
 
-def concatenate(files, audio_duration=50):
+def concatenate(files):
 
     """_summary_
 
@@ -20,6 +20,9 @@ def concatenate(files, audio_duration=50):
     }
 
     sr = files["audio"][0]["sampling_rate"]
+
+    audio_duration = int(max(files["end_time"]) - files["begin_time"][0])
+    # print('Begin, End: ', files['begin_time'][0], max(files['end_time']))
 
     audio_chunk = np.zeros(audio_duration * sr)
 
@@ -129,18 +132,15 @@ def create_spd_dataset(
             )
 
             dataset = dataset.sort("begin_time")
-            # dataset = dataset.select(
-            #     range(min(nb_samples_per_meeting * batch_size, dataset.num_rows))
-            # )
-
-            audio_dur = np.random.normal(audio_dur_mean, audio_dur_std)
+            # audio_dur = np.random.normal(audio_dur_mean, audio_dur_std)
 
             result = dataset.map(
-                lambda example: concatenate(example, int(audio_dur)),
+                lambda example: concatenate(example),
                 batched=True,
                 batch_size=batch_size,
                 remove_columns=dataset.column_names,
                 num_proc=24,
+                # keep_in_memory=True,
             )
 
             concatenate_dataset = concatenate_datasets([concatenate_dataset, result])
@@ -153,9 +153,9 @@ def create_spd_dataset(
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--bs", help="", default="32")
+    parser.add_argument("--bs", help="", default="256")
     parser.add_argument("--samples_per_meeting", help="", default="20")
-    parser.add_argument("--audio_dur_mean", help="", default="60")
+    parser.add_argument("--audio_dur_mean", help="", default="120")
     parser.add_argument("--audio_dur_std", help="", default="10")
     parser.add_argument("--nb_meetings_train", help="", default="-1")
     parser.add_argument("--nb_meetings_val", help="", default="-1")
@@ -179,4 +179,4 @@ if __name__ == "__main__":
         audio_dur_std=int(args.audio_dur_std),
         nb_meetings=nb_meetings,
     )
-    spk_dataset.push_to_hub("kamilakesbi/ami_spd_large_test")
+    spk_dataset.push_to_hub("kamilakesbi/ami_spd_bs_256")
