@@ -1,10 +1,27 @@
 import argparse
 
 import numpy as np
+
+# from audiomentations import (
+#     AddBackgroundNoise,
+#     AddGaussianSNR,
+#     ApplyImpulseResponse,
+#     Compose,
+# )
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
 
+# bn_path = "/home/kamil/datasets/wham_noise/wham_noise/tr",
+# ir_path =  "/home/kamil/datasets/MIT-ir-survey",
 
-def concatenate(files):
+# augmentation_pipeline = Compose(
+#     [
+#         ApplyImpulseResponse(ir_path, p=1),
+#         AddBackgroundNoise(bn_path, 20, 50, p=1),
+#     ]
+# )
+
+
+def concatenate(files, augment=False):
 
     """_summary_
 
@@ -71,6 +88,11 @@ def concatenate(files):
 
     new_batch["speakers"].append(speakers)
 
+    # if augment:
+    #     audio_chunk = augmentation_pipeline(
+    #         samples=audio_chunk, sample_rate=sr
+    #     )
+
     audio_chunk = {
         "array": audio_chunk,
         "sampling_rate": sr,
@@ -135,7 +157,7 @@ def create_spd_dataset(
                 batched=True,
                 batch_size=batch_size,
                 remove_columns=dataset.column_names,
-                num_proc=1,
+                num_proc=24,
                 # keep_in_memory=True,
             )
 
