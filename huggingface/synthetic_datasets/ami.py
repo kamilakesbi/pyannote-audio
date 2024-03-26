@@ -1,4 +1,5 @@
 import argparse
+import random
 
 import numpy as np
 from audiomentations import AddBackgroundNoise, ApplyImpulseResponse, Compose
@@ -10,20 +11,49 @@ ir_path = ("/home/kamil/datasets/MIT-ir-survey",)
 augmentation_pipeline = Compose(
     [
         ApplyImpulseResponse(ir_path, p=0.8),
-        AddBackgroundNoise(bn_path, -5, 30, p=0.9),
+        AddBackgroundNoise(bn_path, 0, 40, p=0.9),
     ]
 )
 
 
-def add_silent_regions():
+def add_silent_regions(
+    audio_file, sr, file_timestamps_start, file_timestamps_end, duration, p
+):
 
-    pass
+    if random.random() < p and len(file_timestamps_start) > 2:
+        duration = np.max(np.random.normal(duration, 3.0), 0)
+
+        insert_silence_index = random.randint(0, len(file_timestamps_start) - 2)
+
+        silence_start = file_timestamps_end[insert_silence_index]
+        silence_end = silence_start + duration
+        silence_start_index = int(silence_start * sr)
+        silence_end_index = int(silence_end * sr)
+
+        relative_duration = silence_end - min(
+            file_timestamps_start[insert_silence_index + 1 :]
+        )
+        file_timestamps_start[insert_silence_index + 1 :] += relative_duration
+        file_timestamps_end[insert_silence_index + 1 :] += relative_duration
+
+        new_length = int(relative_duration * sr) + len(audio_file)
+        extended_audio_file = np.zeros(new_length)
+
+        extended_audio_file[:silence_start_index] = audio_file[:silence_start_index]
+
+        length_segment_end = len(extended_audio_file[silence_end_index:])
+        extended_audio_file[silence_end_index:] = audio_file[-length_segment_end:]
+
+    else:
+        extended_audio_file = audio_file
+
+    return extended_audio_file, file_timestamps_start, file_timestamps_end
 
 
 def concatenate(
     files,
     augment=True,
-    add_silent_regions=True,
+    add_silences=True,
 ):
 
     """_summary_
@@ -43,7 +73,7 @@ def concatenate(
 
     audio_duration = int(max(files["end_time"]) - files["begin_time"][0])
 
-    audio_chunk = np.zeros(audio_duration * sr)
+    audio_file = np.zeros(audio_duration * sr)
 
     files = [
         {key: values[i] for key, values in files.items()}
@@ -56,8 +86,8 @@ def concatenate(
 
     speakers = []
 
-    chunk_timestamps_start = []
-    chunks_timestamps_end = []
+    file_timestamps_start = []
+    file_timestamps_end = []
 
     for element in files:
 
@@ -77,33 +107,40 @@ def concatenate(
         if samples_start > chunk_end:
             break
 
-        audio_chunk[start_index : start_index + segment_length] += audio_segment[
+        audio_file[start_index : start_index + segment_length] += audio_segment[
             :segment_length
         ]
 
         speakers.append(str(speaker))
 
-        chunk_timestamps_start.append(timestamp_start - chunk_start_timestamp)
-        chunks_timestamps_end.append(
+        file_timestamps_start.append(timestamp_start - chunk_start_timestamp)
+        file_timestamps_end.append(
             min(timestamp_end - chunk_start_timestamp, audio_duration)
         )
 
     new_batch["speakers"].append(speakers)
 
-    if add_silent_regions:
-        audio_chunk = add_silent_regions(sample=audio_chunk, sample_rate=sr)
+    if add_silences:
+        audio_file, file_timestamps_start, file_timestamps_end = add_silent_regions(
+            audio_file,
+            sr,
+            file_timestamps_start,
+            file_timestamps_end,
+            duration=15,
+            p=0.5,
+        )
 
     if augment:
-        audio_chunk = augmentation_pipeline(samples=audio_chunk, sample_rate=sr)
+        audio_file = augmentation_pipeline(samples=audio_file, sample_rate=sr)
 
-    audio_chunk = {
-        "array": audio_chunk,
+    audio_file = {
+        "array": audio_file,
         "sampling_rate": sr,
     }
 
-    new_batch["audio"].append(audio_chunk)
-    new_batch["timestamps_start"].append(chunk_timestamps_start)
-    new_batch["timestamps_end"].append(chunks_timestamps_end)
+    new_batch["audio"].append(audio_file)
+    new_batch["timestamps_start"].append(file_timestamps_start)
+    new_batch["timestamps_end"].append(file_timestamps_end)
 
     return new_batch
 
@@ -156,7 +193,7 @@ def create_spd_dataset(ds, batch_size, nb_meetings, augment=False):
                 batched=True,
                 batch_size=batch_size,
                 remove_columns=dataset.column_names,
-                num_proc=1,
+                num_proc=24,
                 keep_in_memory=True,
             )
 
@@ -190,4 +227,4 @@ if __name__ == "__main__":
     spk_dataset = create_spd_dataset(
         ds, batch_size=int(args.bs), nb_meetings=nb_meetings, augment=augment
     )
-    # spk_dataset.push_to_hub("kamilakesbi/ami_spd_augmented_test3")
+    spk_dataset.push_to_hub("kamilakesbi/ami_spd_augmented_silences")
