@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import torch
 import torchaudio.transforms as T
@@ -7,7 +9,7 @@ from audiomentations import (
     ApplyImpulseResponse,
     Compose,
 )
-from datasets import Dataset, DatasetDict, load_dataset
+from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
 from denoiser import pretrained
 from denoiser.dsp import convert_audio
 
@@ -26,6 +28,9 @@ class ASR_to_SPD_dataset:
         self.denoise = config["denoise"]
         self.normalize = config["normalize"]
         self.augment = config["augment"]
+        self.silent_regions = config["silent_regions"]["silent_regions"]
+        self.silence_duration = config["silent_regions"]["silence_duration"]
+        self.silence_proba = config["silent_regions"]["silence_proba"]
 
         if self.denoise:
             self.denoiser = pretrained.dns64().cuda()
@@ -148,6 +153,43 @@ class ASR_to_SPD_dataset:
 
         return (file_timestamps_start, file_timestamps_end, speakers)
 
+    def add_silent_regions(
+        self,
+        audio_file,
+        file_timestamps_start,
+        file_timestamps_end,
+    ):
+
+        if random.random() < self.silence_proba and len(file_timestamps_start) > 2:
+            duration = np.maximum(np.random.normal(self.silence_duration, 3.0), 1)
+
+            insert_silence_index = random.randint(0, len(file_timestamps_start) - 2)
+
+            silence_start = file_timestamps_end[insert_silence_index]
+            silence_end = silence_start + duration
+            silence_start_index = int(silence_start * self.sample_rate)
+            silence_end_index = int(silence_end * self.sample_rate)
+
+            relative_duration = silence_end - min(
+                file_timestamps_start[insert_silence_index + 1 :]
+            )
+            file_timestamps_start[insert_silence_index + 1 :] += relative_duration
+            file_timestamps_end[insert_silence_index + 1 :] += relative_duration
+
+            new_length = int(relative_duration * self.sample_rate) + len(audio_file)
+            extended_audio_file = np.zeros(new_length)
+
+            extended_audio_file[:silence_start_index] = audio_file[:silence_start_index]
+
+            length_segment_end = max(1, len(extended_audio_file[silence_end_index:]))
+
+            extended_audio_file[-length_segment_end:] = audio_file[-length_segment_end:]
+
+        else:
+            extended_audio_file = audio_file
+
+        return extended_audio_file, file_timestamps_start, file_timestamps_end
+
     def concatenate_no_timestamps(
         self,
         files,
@@ -234,6 +276,15 @@ class ASR_to_SPD_dataset:
             ]
             start = max(int(0), np.random.normal(end, self.std_concatenate))
 
+        if self.silent_regions:
+            (
+                audio_file,
+                file_timestamps_start,
+                file_timestamps_end,
+            ) = self.add_silent_regions(
+                audio_file, file_timestamps_start, file_timestamps_end
+            )
+
         if self.denoise:
             audio_file = self.denoise_audio(audio_file)
 
@@ -262,7 +313,7 @@ def create_spd_dataset_from_asr(
     audio_column_name,
     config,
     batch_size,
-    num_proc=12,
+    num_proc=1,
 ):
     """_summary_
 
@@ -294,10 +345,25 @@ def create_spd_dataset_from_asr(
 
     for subset in subsets:
 
-        dataset = asr_dataset[str(subset)].shuffle()
-        dataset = dataset.select(range(200))
+        concatenate_dataset = Dataset.from_dict(
+            {"audio": [], "speakers": [], "timestamps_start": [], "timestamps_end": []}
+        )
 
-        dataset = dataset.map(
+        # asr_dataset[str(subset)] = asr_dataset[str(subset)].shuffle().select(range(30))
+        speakers = set(asr_dataset[str(subset)]["client_id"])
+
+        # while len(speakers) > 5:
+        # n_speakers = random.randint(3, 10)
+        # sampled_speakers = random.sample(speakers, min(n_speakers, len(speakers)))
+
+        # dataset = asr_dataset[str(subset)].filter(
+        #                 lambda x: x in sampled_speakers, input_columns=['client_id']
+        #             )
+        # speakers.difference_update(set(sampled_speakers))
+
+        dataset = asr_dataset[str(subset)].shuffle()
+
+        result = dataset.map(
             lambda example: asr_to_spd.concatenate_no_timestamps(example),
             batched=True,
             batch_size=batch_size,
@@ -305,7 +371,10 @@ def create_spd_dataset_from_asr(
             num_proc=num_proc,
         )
 
-        speaker_diarization_dataset[str(subset)] = dataset
+        concatenate_dataset = concatenate_datasets([concatenate_dataset, result])
+        print(len(speakers))
+
+        speaker_diarization_dataset[str(subset)] = concatenate_dataset
 
     return speaker_diarization_dataset
 
@@ -320,7 +389,12 @@ if __name__ == "__main__":
         "denoise": True,
         "normalize": True,
         "augment": True,
-        "bn_path": "/home/kamil/datasets/wham_noise/wham_noise/tr",
+        "silent_regions": {
+            "silent_regions": True,
+            "silence_duration": 10,
+            "silence_proba": 0.5,
+        },
+        "bn_path": "/home/kamil/datasets/wham_noise/wham_noise/train",
         "ir_path": "/home/kamil/datasets/MIT-ir-survey",
     }
 

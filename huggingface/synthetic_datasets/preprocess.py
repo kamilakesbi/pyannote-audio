@@ -221,10 +221,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    ds = load_dataset("kamilakesbi/ami_spd_augmented_test2", num_proc=12)
+    ds = load_dataset("kamilakesbi/ami_spd_augmented_silences", num_proc=12)
 
     processed_dataset = preprocess_spd_dataset(
         ds, chunk_duration=int(args.chunk_duration)
     )
 
-    processed_dataset.push_to_hub("kamilakesbi/ami_spd_augmented_test2_processed")
+    processed_dataset.push_to_hub("kamilakesbi/ami_spd_augmented_silences_processed")

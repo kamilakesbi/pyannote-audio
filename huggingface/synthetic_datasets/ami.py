@@ -10,8 +10,8 @@ ir_path = ("/home/kamil/datasets/MIT-ir-survey",)
 
 augmentation_pipeline = Compose(
     [
-        ApplyImpulseResponse(ir_path, p=0.8),
-        AddBackgroundNoise(bn_path, 0, 40, p=0.9),
+        ApplyImpulseResponse(ir_path, p=0.5),
+        AddBackgroundNoise(bn_path, 0, 50, p=0.5),
     ]
 )
 
@@ -21,7 +21,7 @@ def add_silent_regions(
 ):
 
     if random.random() < p and len(file_timestamps_start) > 2:
-        duration = np.max(np.random.normal(duration, 3.0), 0)
+        duration = np.maximum(np.random.normal(duration, 3.0), 1)
 
         insert_silence_index = random.randint(0, len(file_timestamps_start) - 2)
 
@@ -41,8 +41,9 @@ def add_silent_regions(
 
         extended_audio_file[:silence_start_index] = audio_file[:silence_start_index]
 
-        length_segment_end = len(extended_audio_file[silence_end_index:])
-        extended_audio_file[silence_end_index:] = audio_file[-length_segment_end:]
+        length_segment_end = max(1, len(extended_audio_file[silence_end_index:]))
+
+        extended_audio_file[-length_segment_end:] = audio_file[-length_segment_end:]
 
     else:
         extended_audio_file = audio_file
@@ -227,4 +228,4 @@ if __name__ == "__main__":
     spk_dataset = create_spd_dataset(
         ds, batch_size=int(args.bs), nb_meetings=nb_meetings, augment=augment
     )
-    spk_dataset.push_to_hub("kamilakesbi/ami_spd_augmented_silences")
+    spk_dataset.push_to_hub("kamilakesbi/ami_spd_augmented_silences2")
