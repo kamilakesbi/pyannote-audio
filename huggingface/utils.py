@@ -1,67 +1,44 @@
-import numpy as np
-import torch
+from collections import Counter
+
+from datasets import load_dataset
 
 
-class DataCollator:
-    """Data collator that will dynamically pad the target labels to have max_speakers_per_chunk"""
+def get_nb_speakers_per_chunks(
+    processed_dataset="kamilakesbi/real_ami_ihm_processed",
+):
 
-    def __init__(self, max_speakers_per_chunk) -> None:
+    dataset_processed = load_dataset(processed_dataset)
 
-        self.max_speakers_per_chunk = max_speakers_per_chunk
+    assert "nb_speakers" in dataset_processed["train"].features
 
-    def __call__(self, features):
-        """_summary_
+    nb_speakers_in_chunk_train = [
+        len(list) for list in dataset_processed[str("train")]["nb_speakers"]
+    ]
+    nb_speakers_in_chunk_val = [
+        len(list) for list in dataset_processed[str("validation")]["nb_speakers"]
+    ]
+    nb_speakers_in_chunk_test = [
+        len(list) for list in dataset_processed[str("test")]["nb_speakers"]
+    ]
 
-        Args:
-            features (_type_): _description_
+    return {
+        "train": Counter(nb_speakers_in_chunk_train),
+        "val": Counter(nb_speakers_in_chunk_val),
+        "test": Counter(nb_speakers_in_chunk_test),
+    }
 
-        Returns:
-            _type_: _description_
-        """
 
-        batch = {}
+if __name__ == "__main__":
 
-        speakers = [f["nb_speakers"] for f in features]
-        labels = [f["labels"] for f in features]
+    real_ami_processed = "kamilakesbi/real_ami_ihm_processed"
+    results_real_ami = get_nb_speakers_per_chunks(real_ami_processed)
 
-        batch["labels"] = self.pad_targets(labels, speakers)
+    print("Real AMI: ", results_real_ami)
 
-        batch["waveforms"] = torch.stack([f["waveforms"] for f in features])
+    synthetic_ami_processed = "kamilakesbi/ami_spd_nobatch_full_processed"
+    results_synthetic_ami = get_nb_speakers_per_chunks(synthetic_ami_processed)
+    print("Synthetic AMI: ", results_synthetic_ami)
 
-        return batch
-
-    def pad_targets(self, labels, speakers):
-        """
-        labels:
-        speakers:
-
-        Returns:
-            _type_:
-                Collated target tensor of shape (num_frames, self.max_speakers_per_chunk)
-                If one chunk has more than max_speakers_per_chunk speakers, we keep
-                the max_speakers_per_chunk most talkative ones. If it has less, we pad with
-                zeros (artificial inactive speakers).
-        """
-
-        targets = []
-
-        for i in range(len(labels)):
-
-            label = speakers[i]
-            target = labels[i].numpy()
-            num_speakers = len(label)
-
-            if num_speakers > self.max_speakers_per_chunk:
-                indices = np.argsort(-np.sum(target, axis=0), axis=0)
-                target = target[:, indices[: self.max_speakers_per_chunk]]
-
-            elif num_speakers < self.max_speakers_per_chunk:
-                target = np.pad(
-                    target,
-                    ((0, 0), (0, self.max_speakers_per_chunk - num_speakers)),
-                    mode="constant",
-                )
-
-            targets.append(target)
-
-        return torch.from_numpy(np.stack(targets))
+    synthetic_ami_processed_2 = "kamilakesbi/ami_spd_augmented_test2_processed"
+    results_synthetic_ami = get_nb_speakers_per_chunks(synthetic_ami_processed_2)
+    print("Synthetic AMI: ", results_synthetic_ami)

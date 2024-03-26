@@ -8,7 +8,7 @@ from segmentation.pretrained_model import SegmentationModel, SegmentationModelCo
 from synthetic_datasets.preprocess import preprocess_spd_dataset
 from transformers import Trainer, TrainingArguments
 
-from huggingface.utils import DataCollator
+from huggingface.collator import DataCollator
 from pyannote.audio import Inference, Model
 from pyannote.audio.tasks import SpeakerDiarization
 
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--load_processed_dataset",
         help="",
-        default="kamilakesbi/ami_spd_nobatch_full",
+        default="kamilakesbi/ami_spd_augmented_test2_processed",
     )
     parser.add_argument("--dataset_name", help="", default="kamilakesbi/ami_spd_bs_32")
     # Preprocess arguments:
@@ -74,7 +74,7 @@ if __name__ == "__main__":
         gradient_accumulation_steps=1,
         per_device_eval_batch_size=32,
         dataloader_num_workers=8,
-        num_train_epochs=3,
+        num_train_epochs=1,
         logging_steps=200,
         load_best_model_at_end=True,
         push_to_hub=False,

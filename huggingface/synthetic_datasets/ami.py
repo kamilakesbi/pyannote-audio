@@ -1,27 +1,30 @@
 import argparse
 
 import numpy as np
-
-# from audiomentations import (
-#     AddBackgroundNoise,
-#     AddGaussianSNR,
-#     ApplyImpulseResponse,
-#     Compose,
-# )
+from audiomentations import AddBackgroundNoise, ApplyImpulseResponse, Compose
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
 
-# bn_path = "/home/kamil/datasets/wham_noise/wham_noise/tr",
-# ir_path =  "/home/kamil/datasets/MIT-ir-survey",
+bn_path = ("/home/kamil/datasets/wham_noise/wham_noise/tr",)
+ir_path = ("/home/kamil/datasets/MIT-ir-survey",)
 
-# augmentation_pipeline = Compose(
-#     [
-#         ApplyImpulseResponse(ir_path, p=1),
-#         AddBackgroundNoise(bn_path, 20, 50, p=1),
-#     ]
-# )
+augmentation_pipeline = Compose(
+    [
+        ApplyImpulseResponse(ir_path, p=0.8),
+        AddBackgroundNoise(bn_path, -5, 30, p=0.9),
+    ]
+)
 
 
-def concatenate(files, augment=False):
+def add_silent_regions():
+
+    pass
+
+
+def concatenate(
+    files,
+    augment=True,
+    add_silent_regions=True,
+):
 
     """_summary_
 
@@ -39,7 +42,6 @@ def concatenate(files, augment=False):
     sr = files["audio"][0]["sampling_rate"]
 
     audio_duration = int(max(files["end_time"]) - files["begin_time"][0])
-    # print('Begin, End: ', files['begin_time'][0], max(files['end_time']))
 
     audio_chunk = np.zeros(audio_duration * sr)
 
@@ -88,10 +90,11 @@ def concatenate(files, augment=False):
 
     new_batch["speakers"].append(speakers)
 
-    # if augment:
-    #     audio_chunk = augmentation_pipeline(
-    #         samples=audio_chunk, sample_rate=sr
-    #     )
+    if add_silent_regions:
+        audio_chunk = add_silent_regions(sample=audio_chunk, sample_rate=sr)
+
+    if augment:
+        audio_chunk = augmentation_pipeline(samples=audio_chunk, sample_rate=sr)
 
     audio_chunk = {
         "array": audio_chunk,
@@ -105,11 +108,7 @@ def concatenate(files, augment=False):
     return new_batch
 
 
-def create_spd_dataset(
-    ds,
-    batch_size,
-    nb_meetings,
-):
+def create_spd_dataset(ds, batch_size, nb_meetings, augment=False):
 
     """Function to create a speaker Diarization dataset
     from the ami for ASR.
@@ -153,12 +152,12 @@ def create_spd_dataset(
             dataset = dataset.sort("begin_time")
 
             result = dataset.map(
-                lambda example: concatenate(example),
+                lambda example: concatenate(example, augment=augment),
                 batched=True,
                 batch_size=batch_size,
                 remove_columns=dataset.column_names,
-                num_proc=24,
-                # keep_in_memory=True,
+                num_proc=1,
+                keep_in_memory=True,
             )
 
             concatenate_dataset = concatenate_datasets([concatenate_dataset, result])
@@ -171,10 +170,11 @@ def create_spd_dataset(
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--bs", help="", default="-1")
+    parser.add_argument("--bs", help="", default="32")
     parser.add_argument("--nb_meetings_train", help="", default="-1")
     parser.add_argument("--nb_meetings_val", help="", default="-1")
     parser.add_argument("--nb_meetings_test", help="", default="-1")
+    parser.add_argument("--augment", help="", default="True")
 
     args = parser.parse_args()
 
@@ -185,10 +185,9 @@ if __name__ == "__main__":
         "validation": int(args.nb_meetings_val),
         "test": int(args.nb_meetings_test),
     }
+    augment = args.augment == "True"
 
     spk_dataset = create_spd_dataset(
-        ds,
-        batch_size=int(args.bs),
-        nb_meetings=nb_meetings,
+        ds, batch_size=int(args.bs), nb_meetings=nb_meetings, augment=augment
     )
-    spk_dataset.push_to_hub("kamilakesbi/ami_spd_nobatch_full")
+    # spk_dataset.push_to_hub("kamilakesbi/ami_spd_augmented_test3")
